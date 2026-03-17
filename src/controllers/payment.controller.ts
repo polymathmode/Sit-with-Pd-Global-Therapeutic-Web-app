@@ -1,0 +1,225 @@
+import { Request, Response } from 'express';
+import crypto from 'crypto';
+import prisma from '../config/prisma';
+import { catchAsync, AppError } from '../middleware/error.middleware';
+import { AuthRequest, PaystackEvent } from '../types';
+import {
+  sendProgramPurchaseEmail,
+  sendCampRegistrationEmail,
+  sendConsultationBookingEmail,
+} from '../utils/email.service';
+
+const PAYSTACK_SECRET = process.env.PAYSTACK_SECRET_KEY!;
+const PAYSTACK_BASE = 'https://api.paystack.co';
+
+// ── Helper: Call Paystack API ─────────────────────────────────────────────────
+const paystackRequest = async (endpoint: string, method = 'GET', body?: object) => {
+  const res = await fetch(`${PAYSTACK_BASE}${endpoint}`, {
+    method,
+    headers: {
+      Authorization: `Bearer ${PAYSTACK_SECRET}`,
+      'Content-Type': 'application/json',
+    },
+    ...(body && { body: JSON.stringify(body) }),
+  });
+  return res.json();
+};
+
+// ── Initialize Payment ────────────────────────────────────────────────────────
+// POST /api/payments/initialize
+// Body: { type: 'PROGRAM' | 'CAMP' | 'CONSULTATION', itemId: string }
+export const initializePayment = catchAsync(async (req: AuthRequest, res: Response) => {
+  const userId = req.user!.id;
+  const { type, itemId } = req.body;
+
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw new AppError('User not found.', 404);
+
+  let amount = 0;
+  let description = '';
+
+  // Determine amount based on payment type
+  if (type === 'PROGRAM') {
+    const program = await prisma.program.findUnique({ where: { id: itemId } });
+    if (!program) throw new AppError('Program not found.', 404);
+
+    // Check not already purchased
+    const existing = await prisma.purchase.findUnique({
+      where: { userId_programId: { userId, programId: itemId } },
+    });
+    if (existing) throw new AppError('You already own this program.', 400);
+
+    amount = program.price;
+    description = `Purchase: ${program.title}`;
+
+  } else if (type === 'CAMP') {
+    const registration = await prisma.campRegistration.findUnique({
+      where: { id: itemId },
+      include: { camp: true },
+    });
+    if (!registration) throw new AppError('Camp registration not found.', 404);
+    if (registration.userId !== userId) throw new AppError('Unauthorized.', 403);
+
+    amount = registration.camp.price;
+    description = `Camp Registration: ${registration.camp.title}`;
+
+  } else if (type === 'CONSULTATION') {
+    const consultation = await prisma.consultation.findUnique({
+      where: { id: itemId },
+      include: { service: true },
+    });
+    if (!consultation) throw new AppError('Consultation not found.', 404);
+    if (consultation.userId !== userId) throw new AppError('Unauthorized.', 403);
+
+    amount = consultation.service.price;
+    description = `Consultation: ${consultation.service.title}`;
+  }
+
+  // Paystack expects amount in kobo (multiply by 100)
+  const paystackResponse = (await paystackRequest('/transaction/initialize', 'POST', {
+    email: user.email,
+    amount: amount * 100,
+    metadata: { userId, type, itemId },
+    callback_url: `${process.env.CLIENT_URL}/payment/verify`,
+  })) as { status: boolean; data: { reference: string; authorization_url: string } };
+
+  if (!paystackResponse.status) {
+    throw new AppError('Could not initialize payment. Please try again.', 500);
+  }
+
+  // Create a PENDING payment record
+  await prisma.payment.create({
+    data: {
+      userId,
+      type,
+      amount,
+      status: 'PENDING',
+      paystackRef: paystackResponse.data.reference,
+      ...(type === 'CAMP' && { campRegistrationId: itemId }),
+      ...(type === 'CONSULTATION' && { consultationId: itemId }),
+    },
+  });
+
+  res.json({
+    success: true,
+    message: 'Payment initialized.',
+    data: {
+      authorizationUrl: paystackResponse.data.authorization_url,
+      reference: paystackResponse.data.reference,
+      description,
+    },
+  });
+});
+
+// ── Paystack Webhook ──────────────────────────────────────────────────────────
+// POST /api/payments/webhook
+// Called by Paystack when payment status changes
+export const paystackWebhook = async (req: Request, res: Response) => {
+  // 1. Verify the webhook is genuinely from Paystack
+  const hash = crypto
+    .createHmac('sha512', PAYSTACK_SECRET)
+    .update(JSON.stringify(req.body))
+    .digest('hex');
+
+  if (hash !== req.headers['x-paystack-signature']) {
+    return res.status(400).json({ message: 'Invalid signature.' });
+  }
+
+  const event: PaystackEvent = req.body;
+
+  // 2. Only handle successful charges
+  if (event.event !== 'charge.success') {
+    return res.sendStatus(200);
+  }
+
+  const { reference, metadata } = event.data;
+  const { userId, type, itemId } = metadata;
+
+  try {
+    // 3. Update payment record to SUCCESS
+    const payment = await prisma.payment.update({
+      where: { paystackRef: reference },
+      data: { status: 'SUCCESS', paystackResponse: event.data as object },
+    });
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) return res.sendStatus(200);
+
+    // 4. Fulfill the purchase based on type
+    if (type === 'PROGRAM') {
+      // Create purchase record giving user access
+      await prisma.purchase.create({
+        data: { userId, programId: itemId, payment: { connect: { id: payment.id } } },
+      });
+
+      const program = await prisma.program.findUnique({ where: { id: itemId } });
+      if (program) {
+        await sendProgramPurchaseEmail(user.email, user.firstName, program.title);
+      }
+
+    } else if (type === 'CAMP') {
+      const registration = await prisma.campRegistration.findUnique({
+        where: { id: itemId },
+        include: { camp: true },
+      });
+      if (registration) {
+        await sendCampRegistrationEmail(
+          user.email,
+          user.firstName,
+          registration.camp.title,
+          registration.camp.startDate
+        );
+      }
+
+    } else if (type === 'CONSULTATION') {
+      const consultation = await prisma.consultation.findUnique({
+        where: { id: itemId },
+        include: { service: true },
+      });
+      if (consultation) {
+        await sendConsultationBookingEmail(
+          user.email,
+          user.firstName,
+          consultation.service.title,
+          consultation.preferredDate ?? undefined
+        );
+      }
+    }
+
+  } catch (err) {
+    console.error('Webhook processing error:', err);
+  }
+
+  res.sendStatus(200);
+};
+
+// ── Verify Payment (frontend callback) ───────────────────────────────────────
+// GET /api/payments/verify/:reference
+export const verifyPayment = catchAsync(async (req: Request, res: Response) => {
+  const { reference } = req.params;
+
+  const payment = await prisma.payment.findUnique({
+    where: { paystackRef: reference },
+  });
+
+  if (!payment) throw new AppError('Payment record not found.', 404);
+
+  res.json({
+    success: true,
+    message: 'Payment status fetched.',
+    data: { status: payment.status, type: payment.type, amount: payment.amount },
+  });
+});
+
+// ── Admin: All Payments ───────────────────────────────────────────────────────
+// GET /api/admin/payments
+export const getAllPayments = catchAsync(async (_req: Request, res: Response) => {
+  const payments = await prisma.payment.findMany({
+    include: {
+      user: { select: { firstName: true, lastName: true, email: true } },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  res.json({ success: true, message: 'Payments fetched.', data: payments });
+});

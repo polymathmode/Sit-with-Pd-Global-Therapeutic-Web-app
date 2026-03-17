@@ -1,0 +1,723 @@
+{
+  "info": {
+    "name": "Well-Being Platform API",
+    "description": "Complete API collection for the Well-Being Web Platform. \n\n**Setup:**\n1. Set the `baseUrl` variable to your server (default: http://localhost:5000)\n2. Run **Register** or **Login** first — the token auto-saves to `authToken`\n3. All protected routes automatically use the saved token via collection-level auth\n\n**Seeded Admin:**\n- Email: admin@wellbeing.com\n- Password: Admin@1234",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{authToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5000", "type": "string" },
+    { "key": "authToken", "value": "", "type": "string" },
+    { "key": "programId", "value": "", "type": "string" },
+    { "key": "lessonId", "value": "", "type": "string" },
+    { "key": "campId", "value": "", "type": "string" },
+    { "key": "campRegistrationId", "value": "", "type": "string" },
+    { "key": "serviceId", "value": "", "type": "string" },
+    { "key": "consultationId", "value": "", "type": "string" },
+    { "key": "paymentRef", "value": "", "type": "string" },
+    { "key": "userId", "value": "", "type": "string" }
+  ],
+  "item": [
+
+    {
+      "name": "🏥 Health Check",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] },
+            "description": "Verify the server is running."
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "🔐 Auth",
+      "item": [
+        {
+          "name": "Register",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.data && res.data.token) {",
+                  "  pm.collectionVariables.set('authToken', res.data.token);",
+                  "  console.log('Token saved:', res.data.token);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/auth/register", "host": ["{{baseUrl}}"], "path": ["api", "auth", "register"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"email\": \"john@example.com\",\n  \"password\": \"Password123\"\n}"
+            },
+            "description": "Create a new user account. Token is automatically saved to `authToken` variable."
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.data && res.data.token) {",
+                  "  pm.collectionVariables.set('authToken', res.data.token);",
+                  "  console.log('Token saved:', res.data.token);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api", "auth", "login"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@wellbeing.com\",\n  \"password\": \"Admin@1234\"\n}"
+            },
+            "description": "Login with existing credentials. Use admin@wellbeing.com / Admin@1234 for the seeded admin account."
+          }
+        },
+        {
+          "name": "Get Current User (Me)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/auth/me", "host": ["{{baseUrl}}"], "path": ["api", "auth", "me"] },
+            "description": "Returns the currently authenticated user's profile."
+          }
+        },
+        {
+          "name": "Forgot Password",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/auth/forgot-password", "host": ["{{baseUrl}}"], "path": ["api", "auth", "forgot-password"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"john@example.com\"\n}"
+            },
+            "description": "Sends a password reset link to the provided email. Always returns 200 to prevent email enumeration."
+          }
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/auth/reset-password", "host": ["{{baseUrl}}"], "path": ["api", "auth", "reset-password"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"PASTE_RESET_TOKEN_FROM_EMAIL_HERE\",\n  \"password\": \"NewPassword123\"\n}"
+            },
+            "description": "Reset the password using the token from the reset email. Token expires in 15 minutes."
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "📚 Programs",
+      "item": [
+        {
+          "name": "Get All Programs (Public)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/programs", "host": ["{{baseUrl}}"], "path": ["api", "programs"] },
+            "description": "Returns all published programs. No auth required."
+          }
+        },
+        {
+          "name": "Get Program by ID (Public)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/programs/{{programId}}", "host": ["{{baseUrl}}"], "path": ["api", "programs", "{{programId}}"] },
+            "description": "Returns program details and lesson titles (no video URLs until purchased)."
+          }
+        },
+        {
+          "name": "[ADMIN] Get All Programs (incl. unpublished)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/programs/admin/all", "host": ["{{baseUrl}}"], "path": ["api", "programs", "admin", "all"] },
+            "description": "Admin only. Returns all programs including drafts, with lesson and purchase counts."
+          }
+        },
+        {
+          "name": "[ADMIN] Create Program",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.data && res.data.id) {",
+                  "  pm.collectionVariables.set('programId', res.data.id);",
+                  "  console.log('Program ID saved:', res.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/programs", "host": ["{{baseUrl}}"], "path": ["api", "programs"] },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "title", "value": "30-Day Mindfulness Journey", "type": "text" },
+                { "key": "description", "value": "Transform your mental wellness with this structured 30-day program.", "type": "text" },
+                { "key": "price", "value": "25000", "type": "text" },
+                { "key": "thumbnail", "type": "file", "src": "", "description": "Optional: upload a thumbnail image" }
+              ]
+            },
+            "description": "Admin only. Creates a new program. Use form-data to optionally attach a thumbnail image."
+          }
+        },
+        {
+          "name": "[ADMIN] Update Program",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/programs/{{programId}}", "host": ["{{baseUrl}}"], "path": ["api", "programs", "{{programId}}"] },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "title", "value": "Updated Program Title", "type": "text" },
+                { "key": "isPublished", "value": "true", "type": "text", "description": "Set to true to publish, false to unpublish" }
+              ]
+            },
+            "description": "Admin only. Updates any program fields. Set isPublished=true to make it visible to users."
+          }
+        },
+        {
+          "name": "[ADMIN] Delete Program",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/programs/{{programId}}", "host": ["{{baseUrl}}"], "path": ["api", "programs", "{{programId}}"] },
+            "description": "Admin only. Permanently deletes a program and all its lessons."
+          }
+        },
+        {
+          "name": "[ADMIN] Add Lesson to Program",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.data && res.data.id) {",
+                  "  pm.collectionVariables.set('lessonId', res.data.id);",
+                  "  console.log('Lesson ID saved:', res.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/programs/{{programId}}/lessons", "host": ["{{baseUrl}}"], "path": ["api", "programs", "{{programId}}", "lessons"] },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "title", "value": "Introduction to Mindfulness", "type": "text" },
+                { "key": "description", "value": "What mindfulness is and why it matters.", "type": "text" },
+                { "key": "content", "value": "Welcome to lesson one. In this lesson we explore...", "type": "text" },
+                { "key": "order", "value": "1", "type": "text" },
+                { "key": "video", "type": "file", "src": "", "description": "Optional: upload a video file" },
+                { "key": "file", "type": "file", "src": "", "description": "Optional: upload a PDF/document" }
+              ]
+            },
+            "description": "Admin only. Adds a lesson to a program. Can include video upload and/or file upload."
+          }
+        },
+        {
+          "name": "[ADMIN] Update Lesson",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/programs/{{programId}}/lessons/{{lessonId}}", "host": ["{{baseUrl}}"], "path": ["api", "programs", "{{programId}}", "lessons", "{{lessonId}}"] },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "title", "value": "Updated Lesson Title", "type": "text" },
+                { "key": "content", "value": "Updated lesson content goes here...", "type": "text" }
+              ]
+            },
+            "description": "Admin only. Updates a specific lesson."
+          }
+        },
+        {
+          "name": "[ADMIN] Delete Lesson",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/programs/{{programId}}/lessons/{{lessonId}}", "host": ["{{baseUrl}}"], "path": ["api", "programs", "{{programId}}", "lessons", "{{lessonId}}"] },
+            "description": "Admin only. Deletes a specific lesson from a program."
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "⛺ Camps",
+      "item": [
+        {
+          "name": "Get All Camps (Public)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/camps", "host": ["{{baseUrl}}"], "path": ["api", "camps"] },
+            "description": "Returns all upcoming and ongoing camps. No auth required."
+          }
+        },
+        {
+          "name": "Get Camp by ID (Public)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/camps/{{campId}}", "host": ["{{baseUrl}}"], "path": ["api", "camps", "{{campId}}"] },
+            "description": "Returns full camp details including registration count."
+          }
+        },
+        {
+          "name": "[USER] Register for Camp",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.data && res.data.id) {",
+                  "  pm.collectionVariables.set('campRegistrationId', res.data.id);",
+                  "  console.log('Camp Registration ID saved:', res.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/camps/{{campId}}/register", "host": ["{{baseUrl}}"], "path": ["api", "camps", "{{campId}}", "register"] },
+            "description": "Registers the logged-in user for a camp. After this, initialize payment using the returned registration ID."
+          }
+        },
+        {
+          "name": "[ADMIN] Create Camp",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.data && res.data.id) {",
+                  "  pm.collectionVariables.set('campId', res.data.id);",
+                  "  console.log('Camp ID saved:', res.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/camps", "host": ["{{baseUrl}}"], "path": ["api", "camps"] },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "title", "value": "Weekend Wellness Retreat", "type": "text" },
+                { "key": "description", "value": "A transformative 3-day wellness retreat in nature.", "type": "text" },
+                { "key": "location", "value": "Yankari Game Reserve, Bauchi", "type": "text" },
+                { "key": "price", "value": "75000", "type": "text" },
+                { "key": "capacity", "value": "30", "type": "text" },
+                { "key": "startDate", "value": "2026-05-01T08:00:00.000Z", "type": "text" },
+                { "key": "endDate", "value": "2026-05-03T17:00:00.000Z", "type": "text" },
+                { "key": "thumbnail", "type": "file", "src": "", "description": "Optional: camp thumbnail image" }
+              ]
+            },
+            "description": "Admin only. Creates a new camp listing."
+          }
+        },
+        {
+          "name": "[ADMIN] Update Camp",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/camps/{{campId}}", "host": ["{{baseUrl}}"], "path": ["api", "camps", "{{campId}}"] },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "status", "value": "UPCOMING", "type": "text", "description": "UPCOMING | ONGOING | COMPLETED | CANCELLED" },
+                { "key": "capacity", "value": "40", "type": "text" }
+              ]
+            },
+            "description": "Admin only. Updates camp details. Status options: UPCOMING, ONGOING, COMPLETED, CANCELLED."
+          }
+        },
+        {
+          "name": "[ADMIN] Delete Camp",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/camps/{{campId}}", "host": ["{{baseUrl}}"], "path": ["api", "camps", "{{campId}}"] },
+            "description": "Admin only. Deletes a camp."
+          }
+        },
+        {
+          "name": "[ADMIN] Get Camp Participants",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/camps/{{campId}}/participants", "host": ["{{baseUrl}}"], "path": ["api", "camps", "{{campId}}", "participants"] },
+            "description": "Admin only. Returns a list of all users registered for a specific camp with payment status."
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "📅 Consultations",
+      "item": [
+        {
+          "name": "Get All Services (Public)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/consultations/services", "host": ["{{baseUrl}}"], "path": ["api", "consultations", "services"] },
+            "description": "Returns all active consultation services. No auth required."
+          }
+        },
+        {
+          "name": "Get Service by ID (Public)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/consultations/services/{{serviceId}}", "host": ["{{baseUrl}}"], "path": ["api", "consultations", "services", "{{serviceId}}"] },
+            "description": "Returns a single consultation service detail."
+          }
+        },
+        {
+          "name": "[USER] Book Consultation",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.data && res.data.id) {",
+                  "  pm.collectionVariables.set('consultationId', res.data.id);",
+                  "  console.log('Consultation ID saved:', res.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/consultations/book", "host": ["{{baseUrl}}"], "path": ["api", "consultations", "book"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"serviceId\": \"{{serviceId}}\",\n  \"preferredDate\": \"2026-04-15T10:00:00.000Z\",\n  \"notes\": \"I'd like to focus on stress management and work-life balance.\"\n}"
+            },
+            "description": "Books a consultation for the logged-in user. After this, initialize payment using the returned consultation ID."
+          }
+        },
+        {
+          "name": "[USER] Get My Consultations",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/consultations/my", "host": ["{{baseUrl}}"], "path": ["api", "consultations", "my"] },
+            "description": "Returns all consultations booked by the logged-in user."
+          }
+        },
+        {
+          "name": "[ADMIN] Get All Consultations",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/consultations", "host": ["{{baseUrl}}"], "path": ["api", "consultations"] },
+            "description": "Admin only. Returns all consultation bookings across all users."
+          }
+        },
+        {
+          "name": "[ADMIN] Update Consultation Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/consultations/{{consultationId}}", "host": ["{{baseUrl}}"], "path": ["api", "consultations", "{{consultationId}}"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"CONFIRMED\",\n  \"confirmedDate\": \"2026-04-15T10:00:00.000Z\"\n}"
+            },
+            "description": "Admin only. Updates consultation status. Options: PENDING, CONFIRMED, CANCELLED, COMPLETED."
+          }
+        },
+        {
+          "name": "[ADMIN] Create Consultation Service",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.data && res.data.id) {",
+                  "  pm.collectionVariables.set('serviceId', res.data.id);",
+                  "  console.log('Service ID saved:', res.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/consultations/services", "host": ["{{baseUrl}}"], "path": ["api", "consultations", "services"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Personal Wellness Consultation\",\n  \"description\": \"A 60-minute one-on-one session focused on your personal wellness journey.\",\n  \"price\": 15000,\n  \"duration\": 60\n}"
+            },
+            "description": "Admin only. Creates a new consultation service offering."
+          }
+        },
+        {
+          "name": "[ADMIN] Update Consultation Service",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/consultations/services/{{serviceId}}", "host": ["{{baseUrl}}"], "path": ["api", "consultations", "services", "{{serviceId}}"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"price\": 20000,\n  \"isActive\": true\n}"
+            },
+            "description": "Admin only. Updates a consultation service. Set isActive=false to hide it from users."
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "💳 Payments",
+      "item": [
+        {
+          "name": "[USER] Initialize Payment — Program",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.data && res.data.reference) {",
+                  "  pm.collectionVariables.set('paymentRef', res.data.reference);",
+                  "  console.log('Payment ref saved:', res.data.reference);",
+                  "  console.log('Redirect user to:', res.data.authorizationUrl);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/payments/initialize", "host": ["{{baseUrl}}"], "path": ["api", "payments", "initialize"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"PROGRAM\",\n  \"itemId\": \"{{programId}}\"\n}"
+            },
+            "description": "Initializes a Paystack payment for a program purchase. Returns an authorizationUrl — redirect the user to this URL to complete payment."
+          }
+        },
+        {
+          "name": "[USER] Initialize Payment — Camp",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/payments/initialize", "host": ["{{baseUrl}}"], "path": ["api", "payments", "initialize"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"CAMP\",\n  \"itemId\": \"{{campRegistrationId}}\"\n}"
+            },
+            "description": "Initializes a Paystack payment for a camp registration. itemId must be the registration ID (not camp ID)."
+          }
+        },
+        {
+          "name": "[USER] Initialize Payment — Consultation",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/payments/initialize", "host": ["{{baseUrl}}"], "path": ["api", "payments", "initialize"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"CONSULTATION\",\n  \"itemId\": \"{{consultationId}}\"\n}"
+            },
+            "description": "Initializes a Paystack payment for a consultation booking."
+          }
+        },
+        {
+          "name": "Verify Payment",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/payments/verify/{{paymentRef}}", "host": ["{{baseUrl}}"], "path": ["api", "payments", "verify", "{{paymentRef}}"] },
+            "description": "Check the status of a payment by its reference. Called by the frontend after Paystack redirects back."
+          }
+        },
+        {
+          "name": "[ADMIN] Get All Payments",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/payments", "host": ["{{baseUrl}}"], "path": ["api", "payments"] },
+            "description": "Admin only. Returns all payment records with user details."
+          }
+        },
+        {
+          "name": "[WEBHOOK] Paystack Webhook (simulate)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-paystack-signature", "value": "COMPUTED_HMAC_SHA512_SIGNATURE", "description": "In production this is sent by Paystack automatically. For local testing use Paystack CLI." }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/payments/webhook", "host": ["{{baseUrl}}"], "path": ["api", "payments", "webhook"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event\": \"charge.success\",\n  \"data\": {\n    \"reference\": \"{{paymentRef}}\",\n    \"amount\": 2500000,\n    \"status\": \"success\",\n    \"metadata\": {\n      \"userId\": \"USER_ID_HERE\",\n      \"type\": \"PROGRAM\",\n      \"itemId\": \"PROGRAM_ID_HERE\"\n    },\n    \"customer\": {\n      \"email\": \"john@example.com\"\n    }\n  }\n}"
+            },
+            "description": "⚠️ For local testing only. In production, Paystack calls this automatically. Use Paystack CLI (paystack listen) to forward real webhook events to localhost."
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "📊 User Dashboard",
+      "item": [
+        {
+          "name": "Get My Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/dashboard", "host": ["{{baseUrl}}"], "path": ["api", "dashboard"] },
+            "description": "Returns the logged-in user's purchases, camp registrations, and consultation bookings in one call."
+          }
+        },
+        {
+          "name": "Access Program Content",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/dashboard/programs/{{programId}}", "host": ["{{baseUrl}}"], "path": ["api", "dashboard", "programs", "{{programId}}"] },
+            "description": "Returns full lesson content (including video URLs) for a purchased program. Returns 403 if not purchased."
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "⚙️ Admin",
+      "item": [
+        {
+          "name": "Get Dashboard Stats",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/stats", "host": ["{{baseUrl}}"], "path": ["api", "admin", "stats"] },
+            "description": "Admin only. Returns platform overview: total users, programs, camps, consultations, total revenue, and recent payments."
+          }
+        },
+        {
+          "name": "Get All Users",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/users?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "users"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            },
+            "description": "Admin only. Paginated list of all registered users with purchase/booking counts."
+          }
+        },
+        {
+          "name": "Get User by ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/users/{{userId}}", "host": ["{{baseUrl}}"], "path": ["api", "admin", "users", "{{userId}}"] },
+            "description": "Admin only. Full user profile including all purchases, camp registrations, consultations, and payment history."
+          }
+        }
+      ]
+    }
+
+  ]
+}
