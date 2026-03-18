@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc",
-    "postbuild": "prisma migrate deploy",
+    "postbuild": "prisma migrate deploy && prisma db seed",
     "start": "node dist/server.js",
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate",
@@ -38,6 +38,10 @@
     "@types/node": "^20.11.0",
     "prisma": "^5.10.0",
     "ts-node-dev": "^2.0.0",
+    "ts-node": "^10.9.2",
     "typescript": "^5.3.3"
+  },
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
   }
 }
