@@ -56,6 +56,36 @@ export const sendCampRegistrationEmail = async (
   });
 };
 
+// ── Consultation: Paystack link after Cal.com booking (PENDING_PAYMENT) ───────
+export const sendConsultationPaymentLinkEmail = async (
+  email: string,
+  name: string,
+  serviceTitle: string,
+  paymentUrl: string,
+  expiresInSeconds: number
+) => {
+  const minutes = Math.round(expiresInSeconds / 60);
+  await transporter.sendMail({
+    from: FROM,
+    to: email,
+    subject: `Complete payment for your consultation – ${serviceTitle}`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Hi ${name},</h2>
+        <p>Your session time is held. Please complete payment within <strong>${minutes} minutes</strong> to confirm.</p>
+        <p>If payment is not received in time, your Cal.com booking will be cancelled automatically.</p>
+        <a href="${paymentUrl}" 
+           style="background:#2a7c6f;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;display:inline-block;margin-top:12px;">
+          Pay now
+        </a>
+        <p style="margin-top:24px;color:#888;font-size:12px;">
+          This link is sent for your consultation booking. If you did not book a session, ignore this email.
+        </p>
+      </div>
+    `,
+  });
+};
+
 // ── Consultation Booking Confirmation ────────────────────────────────────────
 export const sendConsultationBookingEmail = async (
   email: string,

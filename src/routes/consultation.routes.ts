@@ -2,7 +2,7 @@ import { Router } from 'express';
 import {
   getServices,
   getServiceById,
-  bookConsultation,
+  adminManualBookConsultation,
   getMyConsultations,
   getAllConsultations,
   updateConsultation,
@@ -18,8 +18,10 @@ router.get('/services', getServices);
 router.get('/services/:id', getServiceById);
 
 // ── User ──────────────────────────────────────────────────────────────────────
-router.post('/book', authenticate, bookConsultation);
 router.get('/my', authenticate, getMyConsultations);
+
+// ── Admin: manual booking (no Cal.com) ─────────────────────────────────────────
+router.post('/book', authenticate, adminOnly, adminManualBookConsultation);
 
 // ── Admin ─────────────────────────────────────────────────────────────────────
 router.get('/', authenticate, adminOnly, getAllConsultations);

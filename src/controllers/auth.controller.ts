@@ -5,6 +5,8 @@ import crypto from 'crypto';
 import prisma from '../config/prisma';
 import { catchAsync, AppError } from '../middleware/error.middleware';
 import { sendPasswordResetEmail } from '../utils/email.service';
+import { ACCESS_TOKEN_COOKIE, authCookieOptions, clearAuthCookie } from '../lib/authCookie';
+import { AuthRequest } from '../types';
 
 // ── Generate JWT ──────────────────────────────────────────────────────────────
 const signToken = (id: string, email: string, role: string) => {
@@ -30,6 +32,7 @@ export const register = catchAsync(async (req: Request, res: Response) => {
   });
 
   const token = signToken(user.id, user.email, user.role);
+  res.cookie(ACCESS_TOKEN_COOKIE, token, authCookieOptions());
 
   res.status(201).json({
     success: true,
@@ -49,6 +52,7 @@ export const login = catchAsync(async (req: Request, res: Response) => {
   if (!isMatch) throw new AppError('Invalid email or password.', 401);
 
   const token = signToken(user.id, user.email, user.role);
+  res.cookie(ACCESS_TOKEN_COOKIE, token, authCookieOptions());
 
   res.json({
     success: true,
@@ -116,9 +120,15 @@ export const resetPassword = catchAsync(async (req: Request, res: Response) => {
   res.json({ success: true, message: 'Password reset successful. You can now log in.' });
 });
 
+// ── Logout — clear httpOnly auth cookie ───────────────────────────────────────
+export const logout = catchAsync(async (_req: Request, res: Response) => {
+  clearAuthCookie(res);
+  res.json({ success: true, message: 'Logged out.' });
+});
+
 // ── Get Current User (me) ─────────────────────────────────────────────────────
-export const getMe = catchAsync(async (req: Request, res: Response) => {
-  const userId = (req as any).user.id;
+export const getMe = catchAsync(async (req: AuthRequest, res: Response) => {
+  const userId = req.user!.id;
 
   const user = await prisma.user.findUnique({
     where: { id: userId },

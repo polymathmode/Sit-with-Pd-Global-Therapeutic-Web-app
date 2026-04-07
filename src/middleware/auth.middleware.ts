@@ -3,21 +3,26 @@ import jwt from 'jsonwebtoken';
 import { Role } from '@prisma/client';
 import { AuthRequest } from '../types';
 import prisma from '../config/prisma';
+import { ACCESS_TOKEN_COOKIE } from '../lib/authCookie';
 
-// ── Verify JWT token ──────────────────────────────────────────────────────────
+function getBearerToken(authorization: string | undefined): string | undefined {
+  if (!authorization || !authorization.startsWith('Bearer ')) return undefined;
+  return authorization.split(' ')[1];
+}
+
+// ── Verify JWT token (Authorization: Bearer … or httpOnly cookie) ───────────
 export const authenticate = async (
   req: AuthRequest,
   res: Response,
   next: NextFunction
 ) => {
   try {
-    const authHeader = req.headers.authorization;
+    const token =
+      getBearerToken(req.headers.authorization) ?? req.cookies?.[ACCESS_TOKEN_COOKIE];
 
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (!token) {
       return res.status(401).json({ success: false, message: 'Access denied. No token provided.' });
     }
-
-    const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
       id: string;
       email: string;

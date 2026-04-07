@@ -115,17 +115,20 @@ export const initializePayment = catchAsync(async (req: AuthRequest, res: Respon
 // POST /api/payments/webhook
 // Called by Paystack when payment status changes
 export const paystackWebhook = async (req: Request, res: Response) => {
-  // 1. Verify the webhook is genuinely from Paystack
-  const hash = crypto
-    .createHmac('sha512', PAYSTACK_SECRET)
-    .update(JSON.stringify(req.body))
-    .digest('hex');
+  // Raw body required — mounted with express.raw in app.ts (Paystack signs exact bytes)
+  const raw = Buffer.isBuffer(req.body) ? req.body : Buffer.from(JSON.stringify(req.body), 'utf8');
+  const hash = crypto.createHmac('sha512', PAYSTACK_SECRET).update(raw).digest('hex');
 
   if (hash !== req.headers['x-paystack-signature']) {
     return res.status(400).json({ message: 'Invalid signature.' });
   }
 
-  const event: PaystackEvent = req.body;
+  let event: PaystackEvent;
+  try {
+    event = JSON.parse(raw.toString('utf8')) as PaystackEvent;
+  } catch {
+    return res.status(400).json({ message: 'Invalid JSON.' });
+  }
 
   // 2. Only handle successful charges
   if (event.event !== 'charge.success') {
@@ -176,12 +179,19 @@ export const paystackWebhook = async (req: Request, res: Response) => {
         where: { id: itemId },
         include: { service: true },
       });
-      if (consultation) {
+      if (
+        consultation &&
+        (consultation.status === 'PENDING_PAYMENT' || consultation.status === 'PENDING')
+      ) {
+        await prisma.consultation.update({
+          where: { id: consultation.id },
+          data: { status: 'CONFIRMED' },
+        });
         await sendConsultationBookingEmail(
           user.email,
           user.firstName,
           consultation.service.title,
-          consultation.preferredDate ?? undefined
+          consultation.confirmedDate ?? consultation.preferredDate ?? undefined
         );
       }
     }

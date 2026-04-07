@@ -1,7 +1,6 @@
-import { Router, raw } from 'express';
+import { Router } from 'express';
 import {
   initializePayment,
-  paystackWebhook,
   verifyPayment,
   getAllPayments,
 } from '../controllers/payment.controller';
@@ -9,8 +8,7 @@ import { authenticate, adminOnly } from '../middleware/auth.middleware';
 
 const router = Router();
 
-// Paystack webhook needs raw body to verify signature — must come BEFORE express.json()
-router.post('/webhook', raw({ type: 'application/json' }), paystackWebhook);
+// POST /api/payments/webhook — mounted in app.ts with raw body (before express.json)
 
 // ── User ──────────────────────────────────────────────────────────────────────
 router.post('/initialize', authenticate, initializePayment);

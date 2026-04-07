@@ -1,5 +1,12 @@
 import { Router } from 'express';
-import { register, login, getMe, forgotPassword, resetPassword } from '../controllers/auth.controller';
+import {
+  register,
+  login,
+  logout,
+  getMe,
+  forgotPassword,
+  resetPassword,
+} from '../controllers/auth.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { validate } from '../middleware/validate.middleware';
 import { body } from 'express-validator';
@@ -18,6 +25,7 @@ router.post('/login', [
   body('password').notEmpty().withMessage('Password is required.'),
 ], validate, login);
 
+router.post('/logout', logout);
 router.get('/me', authenticate, getMe);
 
 router.post('/forgot-password', [

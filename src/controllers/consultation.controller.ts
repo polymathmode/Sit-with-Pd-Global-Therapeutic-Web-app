@@ -32,13 +32,19 @@ export const getServiceById = catchAsync(async (req: Request, res: Response) => 
 // USER ROUTES
 // ─────────────────────────────────────────────
 
-// POST /api/consultations/book — Book a consultation
-export const bookConsultation = catchAsync(async (req: AuthRequest, res: Response) => {
-  const userId = req.user!.id;
-  const { serviceId, preferredDate, notes } = req.body;
+// POST /api/consultations/book — Admin-only manual booking (no Cal.com); edge cases / support
+export const adminManualBookConsultation = catchAsync(async (req: AuthRequest, res: Response) => {
+  const { userId, serviceId, preferredDate, notes } = req.body;
+
+  if (!userId || !serviceId) {
+    throw new AppError('userId and serviceId are required.', 400);
+  }
 
   const service = await prisma.consultationService.findUnique({ where: { id: serviceId } });
   if (!service || !service.isActive) throw new AppError('This consultation service is not available.', 400);
+
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw new AppError('User not found.', 404);
 
   const consultation = await prisma.consultation.create({
     data: {
@@ -46,13 +52,14 @@ export const bookConsultation = catchAsync(async (req: AuthRequest, res: Respons
       serviceId,
       notes,
       preferredDate: preferredDate ? new Date(preferredDate) : undefined,
+      status: 'PENDING',
     },
-    include: { service: true },
+    include: { service: true, user: { select: { id: true, email: true, firstName: true, lastName: true } } },
   });
 
   res.status(201).json({
     success: true,
-    message: 'Consultation booked. Please complete payment.',
+    message: 'Consultation created (manual). Complete payment via existing Paystack flow if needed.',
     data: consultation,
   });
 });
@@ -107,10 +114,16 @@ export const updateConsultation = catchAsync(async (req: Request, res: Response)
 
 // POST /api/admin/consultations/services — Create a new service
 export const createService = catchAsync(async (req: Request, res: Response) => {
-  const { title, description, price, duration } = req.body;
+  const { title, description, price, duration, calEventTypeId } = req.body;
 
   const service = await prisma.consultationService.create({
-    data: { title, description, price: parseFloat(price), duration: parseInt(duration) },
+    data: {
+      title,
+      description,
+      price: parseFloat(price),
+      duration: parseInt(duration, 10),
+      ...(calEventTypeId != null && calEventTypeId !== '' && { calEventTypeId: parseInt(calEventTypeId, 10) }),
+    },
   });
 
   res.status(201).json({ success: true, message: 'Service created.', data: service });
@@ -118,16 +131,19 @@ export const createService = catchAsync(async (req: Request, res: Response) => {
 
 // PATCH /api/admin/consultations/services/:id — Edit a service
 export const updateService = catchAsync(async (req: Request, res: Response) => {
-  const { title, description, price, duration, isActive } = req.body;
+  const { title, description, price, duration, isActive, calEventTypeId } = req.body;
 
   const service = await prisma.consultationService.update({
     where: { id: req.params.id },
     data: {
       ...(title && { title }),
       ...(description && { description }),
-      ...(price && { price: parseFloat(price) }),
-      ...(duration && { duration: parseInt(duration) }),
+      ...(price != null && { price: parseFloat(price) }),
+      ...(duration != null && { duration: parseInt(duration, 10) }),
       ...(isActive !== undefined && { isActive }),
+      ...(calEventTypeId !== undefined && {
+        calEventTypeId: calEventTypeId === null || calEventTypeId === '' ? null : parseInt(calEventTypeId, 10),
+      }),
     },
   });
 

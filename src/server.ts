@@ -1,14 +1,26 @@
 import 'dotenv/config';
 import app from './app';
 import prisma from './config/prisma';
+import { processExpiredConsultationPayments } from './services/consultationExpiry.service';
+import { syncPaystackPaymentSessionTimeoutIfEnabled } from './lib/paystackIntegration';
 
 const PORT = process.env.PORT || 5000;
+
+const CONSULTATION_EXPIRY_INTERVAL_MS = 60 * 1000;
 
 const startServer = async () => {
   try {
     // Test database connection
     await prisma.$connect();
     console.log('✅ Database connected.');
+
+    await syncPaystackPaymentSessionTimeoutIfEnabled();
+
+    setInterval(() => {
+      processExpiredConsultationPayments().catch((err) =>
+        console.error('[consultation-expiry]', err)
+      );
+    }, CONSULTATION_EXPIRY_INTERVAL_MS);
 
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT} in ${process.env.NODE_ENV} mode`);

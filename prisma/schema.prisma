@@ -33,6 +33,7 @@ enum PaymentType {
 
 enum ConsultationStatus {
   PENDING
+  PENDING_PAYMENT // Cal.com slot held; awaiting Paystack within paymentExpiresAt
   CONFIRMED
   CANCELLED
   COMPLETED
@@ -171,6 +172,8 @@ model ConsultationService {
   description String
   price       Float
   duration    Int      // Duration in minutes
+  /// Cal.com Event Type ID — set in Cal.com dashboard; used to map webhooks to this service
+  calEventTypeId Int?
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -185,9 +188,15 @@ model Consultation {
   userId        String
   serviceId     String
   preferredDate DateTime?          // User's requested date
-  confirmedDate DateTime?          // Admin confirmed date
+  confirmedDate DateTime?        // Slot time from Cal.com or admin
   notes         String?            // User notes / special requests
   status        ConsultationStatus @default(PENDING)
+  /// Cal.com booking UID (payload.uid) — unique when set
+  calBookingId  String?            @unique
+  /// Link to manage booking in Cal.com (e.g. bookerUrl)
+  calBookingUrl String?
+  /// Paystack must complete before this time or slot is released (1h from BOOKING_CREATED)
+  paymentExpiresAt DateTime?
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
 
