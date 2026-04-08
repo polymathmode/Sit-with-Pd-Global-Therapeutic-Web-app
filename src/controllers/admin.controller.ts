@@ -60,6 +60,7 @@ export const getAllUsers = catchAsync(async (req: Request, res: Response) => {
         firstName: true,
         lastName: true,
         email: true,
+        isEmailVerified: true,
         createdAt: true,
         _count: {
           select: { purchases: true, campRegistrations: true, consultations: true },
@@ -89,6 +90,7 @@ export const getUserById = catchAsync(async (req: Request, res: Response) => {
       firstName: true,
       lastName: true,
       email: true,
+      isEmailVerified: true,
       createdAt: true,
       purchases: { include: { program: { select: { title: true, price: true } } } },
       campRegistrations: { include: { camp: { select: { title: true, startDate: true } } } },

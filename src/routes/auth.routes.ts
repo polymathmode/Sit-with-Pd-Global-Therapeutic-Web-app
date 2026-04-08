@@ -2,14 +2,17 @@ import { Router } from 'express';
 import {
   register,
   login,
+  googleAuth,
   logout,
   getMe,
   forgotPassword,
   resetPassword,
+  verifyEmail,
+  resendVerification,
 } from '../controllers/auth.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { validate } from '../middleware/validate.middleware';
-import { body } from 'express-validator';
+import { body, query } from 'express-validator';
 
 const router = Router();
 
@@ -25,7 +28,18 @@ router.post('/login', [
   body('password').notEmpty().withMessage('Password is required.'),
 ], validate, login);
 
+router.post('/google', [
+  body('idToken').trim().notEmpty().withMessage('Google idToken is required.'),
+], validate, googleAuth);
+
 router.post('/logout', logout);
+
+router.get('/verify-email', [
+  query('token').trim().notEmpty().withMessage('Verification token is required.'),
+], validate, verifyEmail);
+
+router.post('/resend-verification', authenticate, resendVerification);
+
 router.get('/me', authenticate, getMe);
 
 router.post('/forgot-password', [

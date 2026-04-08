@@ -24,7 +24,8 @@
     { "key": "serviceId", "value": "", "type": "string" },
     { "key": "consultationId", "value": "", "type": "string" },
     { "key": "paymentRef", "value": "", "type": "string" },
-    { "key": "userId", "value": "", "type": "string" }
+    { "key": "userId", "value": "", "type": "string" },
+    { "key": "verifyToken", "value": "", "type": "string" }
   ],
   "item": [
 
@@ -72,7 +73,7 @@
               "mode": "raw",
               "raw": "{\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"email\": \"john@example.com\",\n  \"password\": \"Password123\"\n}"
             },
-            "description": "Create a new user account. Token is automatically saved to `authToken` variable."
+            "description": "Create a new user account. Sends a verification email; token is saved to `authToken`. Response user includes `isEmailVerified` (false until verified)."
           }
         },
         {
@@ -105,12 +106,64 @@
           }
         },
         {
+          "name": "Google Sign-In",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.data && res.data.token) {",
+                  "  pm.collectionVariables.set('authToken', res.data.token);",
+                  "  console.log('Token saved:', res.data.token);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/auth/google", "host": ["{{baseUrl}}"], "path": ["api", "auth", "google"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idToken\": \"PASTE_GOOGLE_ID_TOKEN_HERE\"\n}"
+            },
+            "description": "Send the Google ID token (JWT) from Google Identity Services or the mobile SDK. Set `GOOGLE_CLIENT_ID` in server `.env` to your OAuth Web Client ID. Same response shape as Login."
+          }
+        },
+        {
           "name": "Get Current User (Me)",
           "request": {
             "method": "GET",
             "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
             "url": { "raw": "{{baseUrl}}/api/auth/me", "host": ["{{baseUrl}}"], "path": ["api", "auth", "me"] },
-            "description": "Returns the currently authenticated user's profile."
+            "description": "Returns the currently authenticated user's profile (includes isEmailVerified)."
+          }
+        },
+        {
+          "name": "Verify Email",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/verify-email?token={{verifyToken}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "verify-email"],
+              "query": [{ "key": "token", "value": "{{verifyToken}}" }]
+            },
+            "description": "Confirm email using the token from the verification email (48h expiry). Set `verifyToken` from the email link query string."
+          }
+        },
+        {
+          "name": "Resend Verification Email",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/auth/resend-verification", "host": ["{{baseUrl}}"], "path": ["api", "auth", "resend-verification"] },
+            "description": "Logged-in users only. Sends a new verification link if the account is not yet verified."
           }
         },
         {

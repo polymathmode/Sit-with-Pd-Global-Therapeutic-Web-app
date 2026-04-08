@@ -55,9 +55,12 @@ model User {
   firstName         String
   lastName          String
   email             String    @unique
-  password          String
+  password          String? // null for Google-only accounts
+  googleId          String?   @unique
   role              Role      @default(USER)
-  isEmailVerified   Boolean   @default(false)
+  isEmailVerified           Boolean   @default(false)
+  emailVerificationToken    String?
+  emailVerificationExpiry   DateTime?
   passwordResetToken  String?
   passwordResetExpiry DateTime?
   createdAt         DateTime  @default(now())

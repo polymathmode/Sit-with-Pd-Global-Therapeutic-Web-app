@@ -116,6 +116,34 @@ export const sendConsultationBookingEmail = async (
   });
 };
 
+// ── Email Verification ────────────────────────────────────────────────────────
+export const sendEmailVerificationEmail = async (
+  email: string,
+  name: string,
+  verificationToken: string
+) => {
+  const verifyUrl = `${process.env.CLIENT_URL}/verify-email?token=${verificationToken}`;
+  await transporter.sendMail({
+    from: FROM,
+    to: email,
+    subject: 'Verify your email address',
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Confirm your email</h2>
+        <p>Hi ${name}, thanks for signing up. Please verify your email address by clicking the button below.</p>
+        <p>This link expires in <strong>48 hours</strong>.</p>
+        <a href="${verifyUrl}" 
+           style="background:#2a7c6f;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;display:inline-block;margin-top:12px;">
+          Verify email
+        </a>
+        <p style="margin-top:24px;color:#888;font-size:12px;">
+          If you didn't create an account, you can ignore this email.
+        </p>
+      </div>
+    `,
+  });
+};
+
 // ── Password Reset Email ──────────────────────────────────────────────────────
 export const sendPasswordResetEmail = async (
   email: string,
