@@ -1,0 +1,6 @@
+name: render_cloud
+values:
+  - key: baseUrl
+    value: ""
+    enabled: true
+color: 120

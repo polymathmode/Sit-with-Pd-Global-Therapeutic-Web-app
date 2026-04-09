@@ -1,0 +1,39 @@
+$kind: collection
+name: Well-Being Web App (Sit-With-PD)
+description: >-
+  Complete API collection for the Well-Being Web Platform. 
+
+
+  **Setup:**
+
+  1. Set the `baseUrl` variable to your server (default: http://localhost:5000)
+
+  2. Run **Register** or **Login** first — the token auto-saves to `authToken`
+
+  3. All protected routes automatically use the saved token via collection-level
+  auth
+
+
+  **Seeded Admin:**
+
+  - Email: admin@wellbeing.com
+
+  - Password: Admin@1234
+variables:
+  baseUrl: http://localhost:5000
+  authToken: ""
+  programId: ""
+  lessonId: ""
+  campId: ""
+  campRegistrationId: ""
+  serviceId: ""
+  consultationId: ""
+  paymentRef: ""
+  userId: ""
+  verifyToken: ""
+auth:
+  - id: dac7afaa-8070-4ca9-a6b3-28e514895b54
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{authToken}}"

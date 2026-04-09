@@ -1,0 +1,15 @@
+$kind: http-request
+description: Initializes a Paystack payment for a consultation booking.
+url: "{{baseUrl}}/api/payments/initialize"
+method: POST
+headers:
+  Authorization: Bearer {{authToken}}
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "type": "CONSULTATION",
+      "itemId": "{{consultationId}}"
+    }
+order: 3000

@@ -1,0 +1,16 @@
+$kind: http-request
+description: Initializes a Paystack payment for a camp registration. itemId must
+  be the registration ID (not camp ID).
+url: "{{baseUrl}}/api/payments/initialize"
+method: POST
+headers:
+  Authorization: Bearer {{authToken}}
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "type": "CAMP",
+      "itemId": "{{campRegistrationId}}"
+    }
+order: 2000

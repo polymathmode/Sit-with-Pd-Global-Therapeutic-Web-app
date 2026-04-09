@@ -1,0 +1,7 @@
+$kind: http-request
+description: Returns the currently authenticated user's profile (includes isEmailVerified).
+url: "{{baseUrl}}/api/auth/me"
+method: GET
+headers:
+  Authorization: Bearer {{authToken}}
+order: 4000
