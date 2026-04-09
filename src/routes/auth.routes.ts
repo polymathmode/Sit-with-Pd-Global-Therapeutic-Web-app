@@ -14,17 +14,20 @@ import { authenticate } from '../middleware/auth.middleware';
 import { validate } from '../middleware/validate.middleware';
 import { body, query } from 'express-validator';
 
+/** Keep Gmail +tags (e.g. user+tag@gmail.com) distinct; default normalizeEmail strips them. */
+const normalizeEmailOpts = { gmail_remove_subaddress: false };
+
 const router = Router();
 
 router.post('/register', [
   body('firstName').trim().notEmpty().withMessage('First name is required.'),
   body('lastName').trim().notEmpty().withMessage('Last name is required.'),
-  body('email').isEmail().normalizeEmail().withMessage('Valid email is required.'),
+  body('email').isEmail().normalizeEmail(normalizeEmailOpts).withMessage('Valid email is required.'),
   body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters.'),
 ], validate, register);
 
 router.post('/login', [
-  body('email').isEmail().normalizeEmail().withMessage('Valid email is required.'),
+  body('email').isEmail().normalizeEmail(normalizeEmailOpts).withMessage('Valid email is required.'),
   body('password').notEmpty().withMessage('Password is required.'),
 ], validate, login);
 
@@ -43,7 +46,7 @@ router.post('/resend-verification', authenticate, resendVerification);
 router.get('/me', authenticate, getMe);
 
 router.post('/forgot-password', [
-  body('email').isEmail().normalizeEmail().withMessage('Valid email is required.'),
+  body('email').isEmail().normalizeEmail(normalizeEmailOpts).withMessage('Valid email is required.'),
 ], validate, forgotPassword);
 
 router.post('/reset-password', [

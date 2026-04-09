@@ -1,4 +1,4 @@
-import transporter from '../config/mailer';
+import { sendMail } from '../config/mailer';
 
 const FROM = `"${process.env.EMAIL_FROM_NAME}" <${process.env.EMAIL_FROM}>`;
 
@@ -8,7 +8,7 @@ export const sendProgramPurchaseEmail = async (
   name: string,
   programTitle: string
 ) => {
-  await transporter.sendMail({
+  await sendMail({
     from: FROM,
     to: email,
     subject: `You're enrolled in "${programTitle}"!`,
@@ -37,7 +37,7 @@ export const sendCampRegistrationEmail = async (
   campDate: Date
 ) => {
   const formattedDate = campDate.toDateString();
-  await transporter.sendMail({
+  await sendMail({
     from: FROM,
     to: email,
     subject: `Camp Registration Confirmed – ${campTitle}`,
@@ -65,7 +65,7 @@ export const sendConsultationPaymentLinkEmail = async (
   expiresInSeconds: number
 ) => {
   const minutes = Math.round(expiresInSeconds / 60);
-  await transporter.sendMail({
+  await sendMail({
     from: FROM,
     to: email,
     subject: `Complete payment for your consultation – ${serviceTitle}`,
@@ -97,7 +97,7 @@ export const sendConsultationBookingEmail = async (
     ? `<p><strong>Requested Date:</strong> ${preferredDate.toDateString()}</p>`
     : `<p>We will reach out to confirm your session time.</p>`;
 
-  await transporter.sendMail({
+  await sendMail({
     from: FROM,
     to: email,
     subject: `Consultation Booking Received – ${serviceTitle}`,
@@ -123,7 +123,7 @@ export const sendEmailVerificationEmail = async (
   verificationToken: string
 ) => {
   const verifyUrl = `${process.env.CLIENT_URL}/verify-email?token=${verificationToken}`;
-  await transporter.sendMail({
+  await sendMail({
     from: FROM,
     to: email,
     subject: 'Verify your email address',
@@ -151,7 +151,7 @@ export const sendPasswordResetEmail = async (
   resetToken: string
 ) => {
   const resetUrl = `${process.env.CLIENT_URL}/reset-password?token=${resetToken}`;
-  await transporter.sendMail({
+  await sendMail({
     from: FROM,
     to: email,
     subject: 'Reset Your Password',
