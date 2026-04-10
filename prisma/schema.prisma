@@ -46,6 +46,12 @@ enum CampStatus {
   CANCELLED
 }
 
+enum ProgramDeliveryFormat {
+  ONLINE
+  IN_PERSON
+  HYBRID
+}
+
 // ─────────────────────────────────────────────
 // USER
 // ─────────────────────────────────────────────
@@ -82,9 +88,23 @@ model User {
 model Program {
   id          String   @id @default(cuid())
   title       String
+  /// Long-form “About this programme” body (and legacy card text if `summary` is empty).
   description String
+  /// Short teaser for listing cards and hero (optional).
+  summary     String?
+  /// Audience or theme label for UI pills, e.g. “For Student”, “Mental health”.
+  category    String?
   price       Float
   thumbnail   String?  // Cloudinary URL
+  /// Programme length shown on detail sidebar, e.g. 12 weeks.
+  durationWeeks   Int?
+  /// Typical weekly time commitment, e.g. 2 or 3 hours.
+  hoursPerWeek    Float?
+  deliveryFormat  ProgramDeliveryFormat @default(ONLINE)
+  /// Shown when set, e.g. “Digital certificate”; omit in UI when null.
+  certificateLabel String?
+  /// “What you’ll gain” / outcome bullets for the marketing detail page.
+  learningOutcomes String[] @default([])
   isPublished Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

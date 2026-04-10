@@ -40,12 +40,38 @@ async function main() {
   // Create a sample program
   await prisma.program.upsert({
     where: { id: 'seed-program-1' },
-    update: {},
+    update: {
+      summary: 'A gentle month-long path to calmer days and clearer focus.',
+      category: 'For Everyone',
+      durationWeeks: 4,
+      hoursPerWeek: 2,
+      deliveryFormat: 'ONLINE',
+      certificateLabel: 'Digital certificate',
+      learningOutcomes: {
+        set: [
+          'Greater emotional awareness and self-understanding',
+          'Practical tools for daily stress regulation',
+          'A sustainable personal mindfulness practice',
+        ],
+      },
+    },
     create: {
       id: 'seed-program-1',
       title: '30-Day Mindfulness Journey',
-      description: 'Transform your mental wellness with this structured 30-day program.',
+      summary: 'A gentle month-long path to calmer days and clearer focus.',
+      category: 'For Everyone',
+      description:
+        'Transform your mental wellness with this structured 30-day program. Through guided sessions and reflective practice, you build habits that support presence and resilience.',
       price: 25000,
+      durationWeeks: 4,
+      hoursPerWeek: 2,
+      deliveryFormat: 'ONLINE',
+      certificateLabel: 'Digital certificate',
+      learningOutcomes: [
+        'Greater emotional awareness and self-understanding',
+        'Practical tools for daily stress regulation',
+        'A sustainable personal mindfulness practice',
+      ],
       isPublished: true,
       lessons: {
         create: [

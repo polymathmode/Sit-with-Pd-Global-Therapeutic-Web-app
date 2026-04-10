@@ -10,6 +10,11 @@ function getResend(): Resend | null {
   return resendClient;
 }
 
+function envFlagTrue(value: string | undefined): boolean {
+  const v = value?.trim().toLowerCase();
+  return v === '1' || v === 'true' || v === 'yes';
+}
+
 let smtpTransporter: nodemailer.Transporter | null = null;
 
 function getSmtpTransporter(): nodemailer.Transporter {
@@ -102,15 +107,18 @@ async function sendViaResend(options: SendMailOptions) {
 }
 
 /**
- * When EMAIL_DEV_REDIRECT_TO is set and NODE_ENV is not production, all mail is
- * delivered to that address so providers like Resend (single sandbox recipient)
- * still work while the app stores distinct addresses (e.g. user+tag@gmail.com).
- * Verification / reset tokens in the message are unchanged.
+ * When EMAIL_DEV_REDIRECT_TO is set:
+ * - In non-production, all mail is delivered to that address (Resend sandbox, etc.).
+ * - In production, same behavior only if EMAIL_REDIRECT_IN_PRODUCTION=true (explicit opt-in).
+ * Distinct signup addresses (e.g. user+tag@gmail.com) stay in DB; only delivery is redirected.
+ * Headers include X-Originally-To; verification/reset tokens in the body are unchanged.
  */
 export async function sendMail(options: SendMailOptions) {
   const redirectRaw = process.env.EMAIL_DEV_REDIRECT_TO?.trim();
-  const redirect =
-    process.env.NODE_ENV !== 'production' && redirectRaw ? redirectRaw : undefined;
+  const allowRedirect =
+    redirectRaw &&
+    (process.env.NODE_ENV !== 'production' || envFlagTrue(process.env.EMAIL_REDIRECT_IN_PRODUCTION));
+  const redirect = allowRedirect ? redirectRaw : undefined;
 
   let payload = options;
 
