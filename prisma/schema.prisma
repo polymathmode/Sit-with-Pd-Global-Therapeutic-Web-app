@@ -7,7 +7,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 // ─────────────────────────────────────────────
@@ -33,7 +32,6 @@ enum PaymentType {
 
 enum ConsultationStatus {
   PENDING
-  PENDING_PAYMENT // Cal.com slot held; awaiting Paystack within paymentExpiresAt
   CONFIRMED
   CANCELLED
   COMPLETED
@@ -46,12 +44,6 @@ enum CampStatus {
   CANCELLED
 }
 
-enum ProgramDeliveryFormat {
-  ONLINE
-  IN_PERSON
-  HYBRID
-}
-
 // ─────────────────────────────────────────────
 // USER
 // ─────────────────────────────────────────────
@@ -61,12 +53,9 @@ model User {
   firstName         String
   lastName          String
   email             String    @unique
-  password          String? // null for Google-only accounts
-  googleId          String?   @unique
+  password          String
   role              Role      @default(USER)
-  isEmailVerified           Boolean   @default(false)
-  emailVerificationToken    String?
-  emailVerificationExpiry   DateTime?
+  isEmailVerified   Boolean   @default(false)
   passwordResetToken  String?
   passwordResetExpiry DateTime?
   createdAt         DateTime  @default(now())
@@ -88,23 +77,9 @@ model User {
 model Program {
   id          String   @id @default(cuid())
   title       String
-  /// Long-form “About this programme” body (and legacy card text if `summary` is empty).
   description String
-  /// Short teaser for listing cards and hero (optional).
-  summary     String?
-  /// Audience or theme label for UI pills, e.g. “For Student”, “Mental health”.
-  category    String?
   price       Float
   thumbnail   String?  // Cloudinary URL
-  /// Programme length shown on detail sidebar, e.g. 12 weeks.
-  durationWeeks   Int?
-  /// Typical weekly time commitment, e.g. 2 or 3 hours.
-  hoursPerWeek    Float?
-  deliveryFormat  ProgramDeliveryFormat @default(ONLINE)
-  /// Shown when set, e.g. “Digital certificate”; omit in UI when null.
-  certificateLabel String?
-  /// “What you’ll gain” / outcome bullets for the marketing detail page.
-  learningOutcomes String[] @default([])
   isPublished Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -195,8 +170,6 @@ model ConsultationService {
   description String
   price       Float
   duration    Int      // Duration in minutes
-  /// Cal.com Event Type ID — set in Cal.com dashboard; used to map webhooks to this service
-  calEventTypeId Int?
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -211,15 +184,9 @@ model Consultation {
   userId        String
   serviceId     String
   preferredDate DateTime?          // User's requested date
-  confirmedDate DateTime?        // Slot time from Cal.com or admin
+  confirmedDate DateTime?          // Admin confirmed date
   notes         String?            // User notes / special requests
   status        ConsultationStatus @default(PENDING)
-  /// Cal.com booking UID (payload.uid) — unique when set
-  calBookingId  String?            @unique
-  /// Link to manage booking in Cal.com (e.g. bookerUrl)
-  calBookingUrl String?
-  /// Paystack must complete before this time or slot is released (1h from BOOKING_CREATED)
-  paymentExpiresAt DateTime?
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
 

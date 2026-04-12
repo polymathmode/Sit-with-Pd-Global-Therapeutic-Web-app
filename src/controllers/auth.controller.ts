@@ -174,20 +174,25 @@ export const verifyEmail = catchAsync(async (req: Request, res: Response) => {
       emailVerificationToken: token,
       emailVerificationExpiry: { gt: new Date() },
     },
+    select: { id: true },
   });
 
   if (!found) throw new AppError('Verification link is invalid or has expired.', 400);
 
-  await prisma.user.update({
+  const user = await prisma.user.update({
     where: { id: found.id },
     data: {
       isEmailVerified: true,
       emailVerificationToken: null,
       emailVerificationExpiry: null,
     },
+    select: {
+      ...publicUserFields,
+      createdAt: true,
+    },
   });
 
-  res.json({ success: true, message: 'Email verified successfully.' });
+  res.json({ success: true, message: 'Email verified successfully.', data: user });
 });
 
 // ── Resend verification email (logged-in, unverified users) ───────────────────

@@ -40,25 +40,53 @@ function parseDeliveryFormat(raw: unknown, required: boolean): ProgramDeliveryFo
   return s as ProgramDeliveryFormat;
 }
 
-function parseLearningOutcomes(raw: unknown): string[] | undefined {
-  if (raw === undefined) return undefined;
-  if (raw === null || raw === '') return [];
+function coalesceLearningOutcomesRaw(body: Record<string, unknown>): { present: boolean; value: unknown } {
+  if ('learningOutcomes' in body) return { present: true, value: body.learningOutcomes };
+  if ('learning_outcomes' in body) return { present: true, value: body.learning_outcomes };
+  return { present: false, value: undefined };
+}
+
+function parseJsonOutcomeArrayString(s: string): string[] {
+  const normalized = s
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"');
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(normalized);
+  } catch {
+    throw new AppError(
+      'learningOutcomes must be a valid JSON array of strings, or one outcome per line (or semicolon-separated).',
+      400
+    );
+  }
+  if (!Array.isArray(parsed)) {
+    throw new AppError('learningOutcomes JSON must be an array of strings.', 400);
+  }
+  return parsed.map((x) => String(x).trim()).filter(Boolean);
+}
+
+/** Multipart sends strings; JSON clients may send a real array. Also accepts line- or semicolon-separated text. */
+function parseLearningOutcomesValue(raw: unknown): string[] {
+  if (raw === undefined || raw === null) return [];
+  if (Buffer.isBuffer(raw)) {
+    return parseLearningOutcomesValue(raw.toString('utf8'));
+  }
   if (Array.isArray(raw)) {
-    return raw.map((s) => String(s).trim()).filter(Boolean);
-  }
-  if (typeof raw === 'string') {
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      throw new AppError('learningOutcomes must be valid JSON array of strings.', 400);
+    if (raw.length === 1 && typeof raw[0] === 'string' && raw[0].trim().startsWith('[')) {
+      return parseJsonOutcomeArrayString(raw[0].trim());
     }
-    if (!Array.isArray(parsed)) {
-      throw new AppError('learningOutcomes must be a JSON array of strings.', 400);
-    }
-    return parsed.map((s) => String(s).trim()).filter(Boolean);
+    return raw.map((x) => String(x).trim()).filter(Boolean);
   }
-  throw new AppError('learningOutcomes must be a JSON array or JSON string.', 400);
+  const str = String(raw).trim();
+  if (!str) return [];
+  if (str.startsWith('[')) {
+    return parseJsonOutcomeArrayString(str);
+  }
+  const lines = str.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  if (lines.length > 1) return lines;
+  const semi = str.split(';').map((l) => l.trim()).filter(Boolean);
+  if (semi.length > 1) return semi;
+  return [str];
 }
 
 // ── PUBLIC: Get all published programs ───────────────────────────────────────
@@ -120,11 +148,11 @@ export const createProgram = catchAsync(async (req: Request, res: Response) => {
     hoursPerWeek,
     deliveryFormat,
     certificateLabel,
-    learningOutcomes: learningOutcomesRaw,
   } = req.body;
   const thumbnail = (req.file as Express.Multer.File & { path: string })?.path || null;
 
-  const learningOutcomes = parseLearningOutcomes(learningOutcomesRaw) ?? [];
+  const { present, value } = coalesceLearningOutcomesRaw(req.body as Record<string, unknown>);
+  const learningOutcomes = parseLearningOutcomesValue(present ? value : undefined);
   const format = parseDeliveryFormat(deliveryFormat, false) ?? ProgramDeliveryFormat.ONLINE;
 
   const data: Prisma.ProgramCreateInput = {
@@ -166,9 +194,10 @@ export const updateProgram = catchAsync(async (req: Request, res: Response) => {
     hoursPerWeek,
     deliveryFormat,
     certificateLabel,
-    learningOutcomes: learningOutcomesRaw,
   } = req.body;
   const thumbnail = (req.file as Express.Multer.File & { path: string })?.path;
+
+  const loField = coalesceLearningOutcomesRaw(req.body as Record<string, unknown>);
 
   const data: Prisma.ProgramUpdateInput = {
     ...(title && { title }),
@@ -191,8 +220,8 @@ export const updateProgram = catchAsync(async (req: Request, res: Response) => {
     ...(certificateLabel !== undefined && {
       certificateLabel: optionalString(certificateLabel),
     }),
-    ...(learningOutcomesRaw !== undefined && {
-      learningOutcomes: { set: parseLearningOutcomes(learningOutcomesRaw) ?? [] },
+    ...(loField.present && {
+      learningOutcomes: { set: parseLearningOutcomesValue(loField.value) },
     }),
   };
 
