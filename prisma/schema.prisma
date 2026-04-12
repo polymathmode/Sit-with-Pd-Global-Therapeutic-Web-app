@@ -63,19 +63,32 @@ model User {
   @@map("users")
 }
 
-model Program {
-  id             String   @id @default(cuid())
-  title          String
-  description    String
-  summary        String?
-  price          Float
-  thumbnail      String?
-  isPublished    Boolean  @default(false)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
 
-  lessons        Lesson[]
-  purchases      Purchase[]
+enum ProgramDeliveryFormat {
+  ONLINE
+  IN_PERSON
+  HYBRID
+}
+
+model Program {
+  id               String                @id @default(cuid())
+  title            String
+  description      String
+  summary          String?
+  category         String?
+  price            Float
+  thumbnail        String?
+  isPublished      Boolean               @default(false)
+  durationWeeks    Int?
+  hoursPerWeek     Float?
+  deliveryFormat   ProgramDeliveryFormat @default(ONLINE)
+  certificateLabel String?
+  learningOutcomes String[]
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  lessons          Lesson[]
+  purchases        Purchase[]
 
   @@map("programs")
 }
