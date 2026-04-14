@@ -1,7 +1,8 @@
 $kind: http-request
+name: "[ADMIN] Add Lesson to Program"
 description: Admin only. Adds a lesson to a program. Can include video upload
   and/or file upload.
-url: "{{baseUrl}}/api/programs/{{programId}}/lessons"
+url: "{{baseUrl}}/api/programs/cmnz2lf56000012xncpozqdtv/lessons"
 method: POST
 headers:
   Authorization: Bearer {{authToken}}
@@ -10,26 +11,36 @@ body:
   content:
     - type: text
       key: title
-      value: Introduction to Mindfulness
+      value: Introduction to Leadershi
+      disabled: false
     - type: text
       key: description
       value: What mindfulness is and why it matters.
+      disabled: false
     - type: text
       key: content
       value: Welcome to lesson one. In this lesson we explore...
+      disabled: false
     - type: text
       key: order
       value: "1"
+      disabled: false
     - type: file
       key: video
-      src:
-        - ""
-      description: "Optional: upload a video file"
+      src: []
+      description: ""
+      disabled: false
     - type: file
       key: file
-      src:
-        - ""
-      description: "Optional: upload a PDF/document"
+      src: []
+      description: ""
+      disabled: false
+    - type: text
+      key: learningObjectives
+      value: '"Understand the core qualities of a leader", "Identify personal
+        leadership style"'
+      description: ""
+      disabled: false
 scripts:
   - type: afterResponse
     code: |-
