@@ -84,6 +84,9 @@ model Program {
   deliveryFormat   ProgramDeliveryFormat @default(ONLINE)
   certificateLabel String?
   learningOutcomes String[]
+  startDate        DateTime?
+  facilitatorName  String?
+  facilitatorEmail String?
   createdAt        DateTime              @default(now())
   updatedAt        DateTime              @updatedAt
 
@@ -100,10 +103,11 @@ model Lesson {
   description String?
   videoUrl    String?
   fileUrl     String?
-  content     String?
-  order       Int
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  content            String?
+  learningObjectives String[]
+  order              Int
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   program     Program  @relation(fields: [programId], references: [id], onDelete: Cascade)
 

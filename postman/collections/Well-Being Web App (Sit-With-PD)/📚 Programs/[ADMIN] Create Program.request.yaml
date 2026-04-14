@@ -1,4 +1,5 @@
 $kind: http-request
+name: "[ADMIN] Create Program"
 description: Admin only. Creates a new program. Use form-data to optionally
   attach a thumbnail image.
 url: "{{baseUrl}}/api/programs"
@@ -10,18 +11,52 @@ body:
   content:
     - type: text
       key: title
-      value: 30-Day Mindfulness Journey
+      value: Leadership Essentiasonlin
+      disabled: false
     - type: text
-      key: description
-      value: Transform your mental wellness with this structured 30-day program.
+      key: category
+      value: Leaders
+      disabled: false
     - type: text
-      key: price
-      value: "25000"
+      key: durationWeeks
+      value: "5"
+      disabled: false
     - type: file
       key: thumbnail
       src:
-        - ""
+        - postman-cloud:///1ef8d928-e53e-4860-961b-f238a70bf5bd
       description: "Optional: upload a thumbnail image"
+      disabled: false
+    - type: text
+      key: hoursPerWeek
+      value: "3"
+      description: ""
+      disabled: false
+    - type: text
+      key: learningOutcomes
+      value: df
+      description: ""
+      disabled: false
+    - type: text
+      key: facilitatorEmail
+      value: nduulenu@gmail.com
+      description: ""
+      disabled: false
+    - type: text
+      key: startDate
+      value: 2026-05-01
+      description: ""
+      disabled: false
+    - type: text
+      key: description
+      value: iiii
+      description: ""
+      disabled: false
+    - type: text
+      key: price
+      value: "5000"
+      description: ""
+      disabled: false
 scripts:
   - type: afterResponse
     code: |-

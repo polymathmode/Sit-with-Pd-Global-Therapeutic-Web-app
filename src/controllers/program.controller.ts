@@ -148,6 +148,9 @@ export const createProgram = catchAsync(async (req: Request, res: Response) => {
     hoursPerWeek,
     deliveryFormat,
     certificateLabel,
+    startDate,
+    facilitatorName,
+    facilitatorEmail,
   } = req.body;
   const thumbnail = (req.file as Express.Multer.File & { path: string })?.path || null;
 
@@ -173,6 +176,15 @@ export const createProgram = catchAsync(async (req: Request, res: Response) => {
     ...(optionalString(certificateLabel) !== undefined && {
       certificateLabel: optionalString(certificateLabel),
     }),
+    ...(optionalString(facilitatorName) !== undefined && {
+      facilitatorName: optionalString(facilitatorName),
+    }),
+    ...(optionalString(facilitatorEmail) !== undefined && {
+      facilitatorEmail: optionalString(facilitatorEmail),
+    }),
+    ...(startDate !== undefined && startDate !== '' && {
+      startDate: new Date(String(startDate)),
+    }),
   };
 
   const program = await prisma.program.create({ data });
@@ -194,6 +206,9 @@ export const updateProgram = catchAsync(async (req: Request, res: Response) => {
     hoursPerWeek,
     deliveryFormat,
     certificateLabel,
+    startDate,
+    facilitatorName,
+    facilitatorEmail,
   } = req.body;
   const thumbnail = (req.file as Express.Multer.File & { path: string })?.path;
 
@@ -220,6 +235,15 @@ export const updateProgram = catchAsync(async (req: Request, res: Response) => {
     ...(certificateLabel !== undefined && {
       certificateLabel: optionalString(certificateLabel),
     }),
+    ...(facilitatorName !== undefined && {
+      facilitatorName: optionalString(facilitatorName),
+    }),
+    ...(facilitatorEmail !== undefined && {
+      facilitatorEmail: optionalString(facilitatorEmail),
+    }),
+    ...(startDate !== undefined && startDate !== '' && {
+      startDate: new Date(String(startDate)),
+    }),
     ...(loField.present && {
       learningOutcomes: { set: parseLearningOutcomesValue(loField.value) },
     }),
@@ -243,7 +267,7 @@ export const deleteProgram = catchAsync(async (req: Request, res: Response) => {
 // ── ADMIN: Add lesson to program ──────────────────────────────────────────────
 export const addLesson = catchAsync(async (req: Request, res: Response) => {
   const { id: programId } = req.params;
-  const { title, description, content, order } = req.body;
+  const { title, description, content, order, learningObjectives, learning_objectives } = req.body;
 
   // Supports both single file upload and multi-field upload
   const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
@@ -259,6 +283,7 @@ export const addLesson = catchAsync(async (req: Request, res: Response) => {
       videoUrl,
       fileUrl,
       order: parseInt(order),
+      learningObjectives: parseLearningOutcomesValue(learningObjectives ?? learning_objectives),
     },
   });
 
@@ -268,7 +293,7 @@ export const addLesson = catchAsync(async (req: Request, res: Response) => {
 // ── ADMIN: Update lesson ──────────────────────────────────────────────────────
 export const updateLesson = catchAsync(async (req: Request, res: Response) => {
   const { lessonId } = req.params;
-  const { title, description, content, order } = req.body;
+  const { title, description, content, order, learningObjectives, learning_objectives } = req.body;
 
   const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
   const videoUrl = files?.video?.[0]?.path || null;
@@ -283,6 +308,9 @@ export const updateLesson = catchAsync(async (req: Request, res: Response) => {
       ...(order && { order: parseInt(order) }),
       ...(videoUrl && { videoUrl }),
       ...(fileUrl && { fileUrl }),
+      ...((learningObjectives !== undefined || learning_objectives !== undefined) && {
+        learningObjectives: { set: parseLearningOutcomesValue(learningObjectives ?? learning_objectives) }
+      }),
     },
   });
 
