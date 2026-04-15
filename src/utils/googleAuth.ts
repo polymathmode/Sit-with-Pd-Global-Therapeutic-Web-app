@@ -7,7 +7,7 @@ export function getGoogleClientIds(): string[] {
   if (!raw?.trim()) return [];
   return raw
     .split(',')
-    .map((s) => s.trim())
+    .map((s: string) => s.trim())
     .filter(Boolean);
 }
 

@@ -22,7 +22,7 @@ const startServer = async () => {
       );
     }, CONSULTATION_EXPIRY_INTERVAL_MS);
 
-    app.listen(PORT, () => {
+    app.listen(Number(PORT), '0.0.0.0', () => {
       console.log(`🚀 Server running on port ${PORT} in ${process.env.NODE_ENV} mode`);
       console.log(`📖 Health check: http://localhost:${PORT}/health`);
     });
