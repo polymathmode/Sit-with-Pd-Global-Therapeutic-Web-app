@@ -39,6 +39,15 @@ enum CampStatus {
   CANCELLED
 }
 
+// Matches the "Type" field in the Add Module modal (Reading, Video, Quiz, etc.)
+enum ModuleType {
+  VIDEO
+  READING
+  QUIZ
+  ASSIGNMENT
+  OTHER
+}
+
 model User {
   id                       String    @id @default(cuid())
   firstName                String
@@ -63,55 +72,76 @@ model User {
   @@map("users")
 }
 
-
-enum ProgramDeliveryFormat {
-  ONLINE
-  IN_PERSON
-  HYBRID
+// Matches the Program Type dropdown: Leaders, Students, Professionals
+enum ProgramCategory {
+  LEADERS
+  STUDENTS
+  PROFESSIONALS
 }
 
 model Program {
-  id               String                @id @default(cuid())
+  id               String          @id @default(cuid())
   title            String
   description      String
-  summary          String?
-  category         String?
   price            Float
+  category         ProgramCategory @default(LEADERS)
   thumbnail        String?
-  isPublished      Boolean               @default(false)
+  isPublished      Boolean         @default(false)
   durationWeeks    Int?
   hoursPerWeek     Float?
-  deliveryFormat   ProgramDeliveryFormat @default(ONLINE)
   certificateLabel String?
-  learningOutcomes String[]
+  learningOutcomes String[]        // Program-level learning objectives (Step 2 of form)
   startDate        DateTime?
   facilitatorName  String?
   facilitatorEmail String?
-  createdAt        DateTime              @default(now())
-  updatedAt        DateTime              @updatedAt
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
 
-  lessons          Lesson[]
-  purchases        Purchase[]
+  // Three-level hierarchy: Program → Week → Module
+  weeks     ProgramWeek[]
+  purchases Purchase[]
 
   @@map("programs")
 }
 
-model Lesson {
-  id          String   @id @default(cuid())
-  programId   String
+// Represents a "Week" in the Program Weeks section of the design.
+// Each week has a title, description, its own learning objectives, and child modules.
+model ProgramWeek {
+  id                 String   @id @default(cuid())
+  programId          String
+  title              String
+  description        String?
+  learningObjectives String[] // Per-week learning objectives added via the modal
+  order              Int      // Determines "Week 1", "Week 2" display order
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  program Program        @relation(fields: [programId], references: [id], onDelete: Cascade)
+  modules ProgramModule[]
+
+  @@map("program_weeks")
+}
+
+// Represents a "Module" inside a week.
+// Fields map directly to the "Add Module to Week" modal in the design.
+model ProgramModule {
+  id          String     @id @default(cuid())
+  weekId      String
   title       String
   description String?
-  videoUrl    String?
-  fileUrl     String?
-  content            String?
-  learningObjectives String[]
-  order              Int
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  type        ModuleType @default(OTHER)
+  duration    String?    // Free-text: "45 min", "1 hr", etc. (matches the design's Duration field)
+  contentUrl  String?    // YouTube, Vimeo, Google Docs URL (Content URL field)
+  embedCode   String?    // Raw iframe/HTML embed (Embed Code field)
+  order       Int        // Module display order within the week
 
-  program     Program  @relation(fields: [programId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  @@map("lessons")
+  week ProgramWeek @relation(fields: [weekId], references: [id], onDelete: Cascade)
+
+  @@map("program_modules")
 }
 
 model Purchase {
@@ -120,9 +150,9 @@ model Purchase {
   programId String
   createdAt DateTime @default(now())
 
-  user      User     @relation(fields: [userId], references: [id])
-  program   Program  @relation(fields: [programId], references: [id])
-  payment   Payment?
+  user    User     @relation(fields: [userId], references: [id])
+  program Program  @relation(fields: [programId], references: [id])
+  payment Payment?
 
   @@unique([userId, programId])
   @@map("purchases")
@@ -153,9 +183,9 @@ model CampRegistration {
   campId    String
   createdAt DateTime @default(now())
 
-  user      User     @relation(fields: [userId], references: [id])
-  camp      Camp     @relation(fields: [campId], references: [id])
-  payment   Payment?
+  user    User     @relation(fields: [userId], references: [id])
+  camp    Camp     @relation(fields: [campId], references: [id])
+  payment Payment?
 
   @@unique([userId, campId])
   @@map("camp_registrations")
@@ -178,22 +208,22 @@ model ConsultationService {
 }
 
 model Consultation {
-  id              String             @id @default(cuid())
-  userId          String
-  serviceId       String
-  preferredDate   DateTime?
-  confirmedDate   DateTime?
-  notes           String?
-  status          ConsultationStatus @default(PENDING)
-  calBookingId    String?            @unique
-  calBookingUrl   String?
+  id               String             @id @default(cuid())
+  userId           String
+  serviceId        String
+  preferredDate    DateTime?
+  confirmedDate    DateTime?
+  notes            String?
+  status           ConsultationStatus @default(PENDING)
+  calBookingId     String?            @unique
+  calBookingUrl    String?
   paymentExpiresAt DateTime?
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
 
-  user            User               @relation(fields: [userId], references: [id])
-  service         ConsultationService @relation(fields: [serviceId], references: [id])
-  payment         Payment?
+  user    User                @relation(fields: [userId], references: [id])
+  service ConsultationService @relation(fields: [serviceId], references: [id])
+  payment Payment?
 
   @@map("consultations")
 }

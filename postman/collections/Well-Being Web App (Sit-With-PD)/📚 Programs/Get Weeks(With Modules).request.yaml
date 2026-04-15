@@ -1,0 +1,5 @@
+$kind: http-request
+name: Get Weeks(With Modules)
+url: ""
+method: GET
+order: 691291206720962

@@ -11,20 +11,19 @@ body:
   content:
     - type: text
       key: title
-      value: Leadership Essentiasonlin
+      value: Global Leadership Mastery hhh
       disabled: false
     - type: text
-      key: category
-      value: Leaders
+      key: description
+      value: A 6-week intensive for future leaders
       disabled: false
     - type: text
-      key: durationWeeks
-      value: "5"
+      key: price
+      value: "5000"
       disabled: false
     - type: file
       key: thumbnail
-      src:
-        - postman-cloud:///1ef8d928-e53e-4860-961b-f238a70bf5bd
+      src: []
       description: "Optional: upload a thumbnail image"
       disabled: false
     - type: text
@@ -34,7 +33,7 @@ body:
       disabled: false
     - type: text
       key: learningOutcomes
-      value: df
+      value: '["Active Listening", "Conflict Resolution"]'
       description: ""
       disabled: false
     - type: text
@@ -48,13 +47,50 @@ body:
       description: ""
       disabled: false
     - type: text
-      key: description
-      value: iiii
+      key: category
+      value: LEADERS
       description: ""
       disabled: false
     - type: text
-      key: price
-      value: "5000"
+      key: facilitatorName
+      value: Gobachev
+      description: ""
+      disabled: false
+    - type: text
+      key: facilitatorEmail
+      value: john@example.com
+      description: ""
+      disabled: false
+    - type: text
+      key: weeks
+      value: >
+        [
+          {
+            "title": "Week 1: Foundations of Leadership",
+            "description": "This week covers the basic philosophies of leadership.",
+            "learningObjectives": ["Understand the 4 pillars", "Identify your style"],
+            "modules": [
+              {
+                "title": "Introduction to Leadership Styles",
+                "description": "Watch this brief overview.",
+                "type": "VIDEO",
+                "duration": "45 mins",
+                "contentUrl": "https://www.youtube.com/watch?v=example"
+              }
+            ]
+          },
+          {
+            "title": "Week 2: Advanced Strategies",
+            "learningObjectives": ["Implement strategic planning"],
+            "modules": [
+              {
+                "title": "Reading: Strategy Document",
+                "type": "READING",
+                "contentUrl": "https://docs.google.com/document/d/example"
+              }
+            ]
+          }
+        ]
       description: ""
       disabled: false
 scripts:

@@ -13,7 +13,7 @@ export const getDashboard = catchAsync(async (req: AuthRequest, res: Response) =
       where: { userId },
       include: {
         program: {
-          include: { _count: { select: { lessons: true } } },
+          include: { _count: { select: { weeks: true } } },
         },
         payment: { select: { status: true, amount: true, createdAt: true } },
       },
@@ -69,7 +69,12 @@ export const getProgramContent = catchAsync(async (req: AuthRequest, res: Respon
   const program = await prisma.program.findUnique({
     where: { id: programId },
     include: {
-      lessons: { orderBy: { order: 'asc' } },
+      weeks: {
+        orderBy: { order: 'asc' },
+        include: {
+          modules: { orderBy: { order: 'asc' } },
+        },
+      },
     },
   });
 

@@ -1,11 +1,12 @@
 $kind: http-request
-name: "[ADMIN] Add Lesson to Program"
+name: "[ADMIN] Add Week to Program"
 description: Admin only. Adds a lesson to a program. Can include video upload
   and/or file upload.
 url: "{{baseUrl}}/api/programs/cmnz2lf56000012xncpozqdtv/lessons"
 method: POST
 headers:
-  Authorization: Bearer {{authToken}}
+  - key: Authorization
+    value: Bearer {{authToken}}
 body:
   type: formdata
   content:

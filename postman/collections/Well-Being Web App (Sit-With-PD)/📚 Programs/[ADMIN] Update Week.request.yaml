@@ -1,9 +1,13 @@
 $kind: http-request
+name: "[ADMIN] Update Week"
 description: Admin only. Updates a specific lesson.
-url: "{{baseUrl}}/api/programs/{{programId}}/lessons/{{lessonId}}"
+url: "{{baseUrl}}/api/programs/:id/weeks/:weekId"
 method: PATCH
 headers:
   Authorization: Bearer {{authToken}}
+pathVariables:
+  id: ""
+  weekId: ""
 body:
   type: formdata
   content:
