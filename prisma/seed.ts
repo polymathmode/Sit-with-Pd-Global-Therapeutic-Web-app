@@ -41,11 +41,10 @@ async function main() {
   await prisma.program.upsert({
     where: { id: 'seed-program-1' },
     update: {
-      summary: 'A gentle month-long path to calmer days and clearer focus.',
-      category: 'For Everyone',
+      description: 'Transform your mental wellness with this structured 30-day program. Through guided sessions and reflective practice, you build habits that support presence and resilience.',
+      category: 'LEADERS',
       durationWeeks: 4,
       hoursPerWeek: 2,
-      deliveryFormat: 'ONLINE',
       certificateLabel: 'Digital certificate',
       learningOutcomes: {
         set: [
@@ -58,14 +57,12 @@ async function main() {
     create: {
       id: 'seed-program-1',
       title: '30-Day Mindfulness Journey',
-      summary: 'A gentle month-long path to calmer days and clearer focus.',
-      category: 'For Everyone',
+      category: 'LEADERS',
       description:
         'Transform your mental wellness with this structured 30-day program. Through guided sessions and reflective practice, you build habits that support presence and resilience.',
       price: 25000,
       durationWeeks: 4,
       hoursPerWeek: 2,
-      deliveryFormat: 'ONLINE',
       certificateLabel: 'Digital certificate',
       learningOutcomes: [
         'Greater emotional awareness and self-understanding',
@@ -73,20 +70,24 @@ async function main() {
         'A sustainable personal mindfulness practice',
       ],
       isPublished: true,
-      lessons: {
+      weeks: {
         create: [
           {
-            title: 'Introduction to Mindfulness',
+            title: 'Week 1: Introduction to Mindfulness',
             description: 'What mindfulness is and why it matters.',
-            content: 'Welcome to the 30-Day Mindfulness Journey...',
             order: 1,
-          },
-          {
-            title: 'Breathing Techniques',
-            description: 'Core breathing exercises for daily practice.',
-            content: 'In this lesson we will explore breathing...',
-            order: 2,
-          },
+            modules: {
+               create: [
+                 {
+                    title: 'Breathing Techniques',
+                    description: 'Core breathing exercises for daily practice.',
+                    type: 'VIDEO',
+                    contentUrl: 'https://youtube.com',
+                    order: 1
+                 }
+               ]
+            }
+          }
         ],
       },
     },
