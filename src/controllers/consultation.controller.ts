@@ -7,6 +7,14 @@ import { AuthRequest } from '../types';
 const CAL_EVENT_TYPE_TAKEN =
   'A consultation service already uses this Cal.com event type. Use a different event type or update the existing service.';
 
+function normalizeOptionalUrl(value: unknown): string | undefined | null {
+  if (value === undefined) return undefined;
+  if (value === null || value === '') return null;
+  if (typeof value !== 'string') throw new AppError('calBookingUrl must be a string.', 400);
+  const t = value.trim();
+  return t === '' ? null : t;
+}
+
 async function assertCalEventTypeIdAvailable(
   calEventTypeId: number | null | undefined,
   excludeServiceId?: string
@@ -144,15 +152,29 @@ export const createService = catchAsync(async (req: Request, res: Response) => {
 
   await assertCalEventTypeIdAvailable(parsedCal);
 
+  const createData: {
+    title: string;
+    description: string;
+    price: number;
+    duration: number;
+    calEventTypeId?: number;
+    calBookingUrl?: string | null;
+  } = {
+    title,
+    description,
+    price: parseFloat(price),
+    duration: parseInt(duration, 10),
+    ...(parsedCal !== undefined && { calEventTypeId: parsedCal }),
+  };
+
+  if ('calBookingUrl' in req.body) {
+    const u = normalizeOptionalUrl(req.body.calBookingUrl);
+    if (u !== undefined) createData.calBookingUrl = u;
+  }
+
   try {
     const service = await prisma.consultationService.create({
-      data: {
-        title,
-        description,
-        price: parseFloat(price),
-        duration: parseInt(duration, 10),
-        ...(parsedCal !== undefined && { calEventTypeId: parsedCal }),
-      },
+      data: createData,
     });
 
     res.status(201).json({ success: true, message: 'Service created.', data: service });
@@ -183,6 +205,12 @@ export const updateService = catchAsync(async (req: Request, res: Response) => {
     await assertCalEventTypeIdAvailable(nextCal, req.params.id);
   }
 
+  let nextCalBookingUrl: string | null | undefined;
+  if ('calBookingUrl' in req.body) {
+    const u = normalizeOptionalUrl(req.body.calBookingUrl);
+    if (u !== undefined) nextCalBookingUrl = u;
+  }
+
   try {
     const service = await prisma.consultationService.update({
       where: { id: req.params.id },
@@ -193,6 +221,7 @@ export const updateService = catchAsync(async (req: Request, res: Response) => {
         ...(duration != null && { duration: parseInt(duration, 10) }),
         ...(isActive !== undefined && { isActive }),
         ...(calEventTypeId !== undefined && { calEventTypeId: nextCal as number | null }),
+        ...(nextCalBookingUrl !== undefined && { calBookingUrl: nextCalBookingUrl }),
       },
     });
 

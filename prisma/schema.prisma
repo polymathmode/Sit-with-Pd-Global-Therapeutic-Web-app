@@ -198,6 +198,7 @@ model ConsultationService {
   price          Float
   duration       Int
   calEventTypeId Int?
+  calBookingUrl  String?
   isActive       Boolean  @default(true)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
