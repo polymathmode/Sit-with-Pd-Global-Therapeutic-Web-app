@@ -15,7 +15,7 @@ body:
       disabled: false
     - type: text
       key: description
-      value: A 6-week intensive for future leaders
+      value: A 6-week intensive for future leadersgggggggg
       disabled: false
     - type: text
       key: price
@@ -54,11 +54,6 @@ body:
     - type: text
       key: facilitatorName
       value: Gobachev
-      description: ""
-      disabled: false
-    - type: text
-      key: facilitatorEmail
-      value: john@example.com
       description: ""
       disabled: false
     - type: text

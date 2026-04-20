@@ -1,7 +1,27 @@
 import { Request, Response } from 'express';
+import { Prisma } from '@prisma/client';
 import prisma from '../config/prisma';
 import { catchAsync, AppError } from '../middleware/error.middleware';
 import { AuthRequest } from '../types';
+
+const CAL_EVENT_TYPE_TAKEN =
+  'A consultation service already uses this Cal.com event type. Use a different event type or update the existing service.';
+
+async function assertCalEventTypeIdAvailable(
+  calEventTypeId: number | null | undefined,
+  excludeServiceId?: string
+): Promise<void> {
+  if (calEventTypeId == null) return;
+
+  const existing = await prisma.consultationService.findFirst({
+    where: {
+      calEventTypeId,
+      ...(excludeServiceId && { NOT: { id: excludeServiceId } }),
+    },
+    select: { id: true },
+  });
+  if (existing) throw new AppError(CAL_EVENT_TYPE_TAKEN, 409);
+}
 
 // ─────────────────────────────────────────────
 // PUBLIC ROUTES
@@ -116,36 +136,71 @@ export const updateConsultation = catchAsync(async (req: Request, res: Response)
 export const createService = catchAsync(async (req: Request, res: Response) => {
   const { title, description, price, duration, calEventTypeId } = req.body;
 
-  const service = await prisma.consultationService.create({
-    data: {
-      title,
-      description,
-      price: parseFloat(price),
-      duration: parseInt(duration, 10),
-      ...(calEventTypeId != null && calEventTypeId !== '' && { calEventTypeId: parseInt(calEventTypeId, 10) }),
-    },
-  });
+  let parsedCal: number | undefined;
+  if (calEventTypeId != null && calEventTypeId !== '') {
+    parsedCal = parseInt(String(calEventTypeId), 10);
+    if (Number.isNaN(parsedCal)) throw new AppError('calEventTypeId must be a number.', 400);
+  }
 
-  res.status(201).json({ success: true, message: 'Service created.', data: service });
+  await assertCalEventTypeIdAvailable(parsedCal);
+
+  try {
+    const service = await prisma.consultationService.create({
+      data: {
+        title,
+        description,
+        price: parseFloat(price),
+        duration: parseInt(duration, 10),
+        ...(parsedCal !== undefined && { calEventTypeId: parsedCal }),
+      },
+    });
+
+    res.status(201).json({ success: true, message: 'Service created.', data: service });
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+      throw new AppError(CAL_EVENT_TYPE_TAKEN, 409);
+    }
+    throw e;
+  }
 });
 
 // PATCH /api/admin/consultations/services/:id — Edit a service
 export const updateService = catchAsync(async (req: Request, res: Response) => {
   const { title, description, price, duration, isActive, calEventTypeId } = req.body;
 
-  const service = await prisma.consultationService.update({
-    where: { id: req.params.id },
-    data: {
-      ...(title && { title }),
-      ...(description && { description }),
-      ...(price != null && { price: parseFloat(price) }),
-      ...(duration != null && { duration: parseInt(duration, 10) }),
-      ...(isActive !== undefined && { isActive }),
-      ...(calEventTypeId !== undefined && {
-        calEventTypeId: calEventTypeId === null || calEventTypeId === '' ? null : parseInt(calEventTypeId, 10),
-      }),
-    },
-  });
+  let nextCal: number | null | undefined;
+  if (calEventTypeId !== undefined) {
+    nextCal =
+      calEventTypeId === null || calEventTypeId === ''
+        ? null
+        : parseInt(String(calEventTypeId), 10);
+    if (calEventTypeId !== null && calEventTypeId !== '' && Number.isNaN(nextCal as number)) {
+      throw new AppError('calEventTypeId must be a number.', 400);
+    }
+  }
 
-  res.json({ success: true, message: 'Service updated.', data: service });
+  if (nextCal !== undefined && nextCal !== null) {
+    await assertCalEventTypeIdAvailable(nextCal, req.params.id);
+  }
+
+  try {
+    const service = await prisma.consultationService.update({
+      where: { id: req.params.id },
+      data: {
+        ...(title && { title }),
+        ...(description && { description }),
+        ...(price != null && { price: parseFloat(price) }),
+        ...(duration != null && { duration: parseInt(duration, 10) }),
+        ...(isActive !== undefined && { isActive }),
+        ...(calEventTypeId !== undefined && { calEventTypeId: nextCal as number | null }),
+      },
+    });
+
+    res.json({ success: true, message: 'Service updated.', data: service });
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+      throw new AppError(CAL_EVENT_TYPE_TAKEN, 409);
+    }
+    throw e;
+  }
 });

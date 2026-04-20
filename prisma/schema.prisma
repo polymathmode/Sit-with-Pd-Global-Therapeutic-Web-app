@@ -204,6 +204,7 @@ model ConsultationService {
 
   consultations Consultation[]
 
+  @@unique([calEventTypeId])
   @@map("consultation_services")
 }
 

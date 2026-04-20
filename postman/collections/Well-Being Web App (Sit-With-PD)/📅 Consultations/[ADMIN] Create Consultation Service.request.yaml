@@ -1,4 +1,5 @@
 $kind: http-request
+name: "[ADMIN] Create Consultation Service"
 description: Admin only. Creates a new consultation service offering.
 url: "{{baseUrl}}/api/consultations/services"
 method: POST
@@ -6,13 +7,14 @@ headers:
   Authorization: Bearer {{authToken}}
   Content-Type: application/json
 body:
-  type: text
-  content: >-
+  type: json
+  content: |-
     {
       "title": "Personal Wellness Consultation",
       "description": "A 60-minute one-on-one session focused on your personal wellness journey.",
       "price": 15000,
-      "duration": 60
+      "duration": 60,
+      "calEventTypeId": 5230076
     }
 scripts:
   - type: afterResponse
