@@ -10,11 +10,12 @@ body:
   type: json
   content: |-
     {
-      "title": "Personal Wellness Consultation",
+      "title": "Ndu's Wellness ",
       "description": "A 60-minute one-on-one session focused on your personal wellness journey.",
       "price": 15000,
-      "duration": 60,
-      "calEventTypeId": 5230076
+      "duration": 15,
+      "calEventTypeId": 5422174,
+      "calBookingUrl":"cal.com/ndubuishi-ulenu-o6s7qx/ndus-wellness"
     }
 scripts:
   - type: afterResponse

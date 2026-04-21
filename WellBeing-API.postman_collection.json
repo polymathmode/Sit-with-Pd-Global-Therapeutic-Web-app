@@ -21,6 +21,9 @@
     { "key": "lessonId", "value": "", "type": "string" },
     { "key": "campId", "value": "", "type": "string" },
     { "key": "campRegistrationId", "value": "", "type": "string" },
+    { "key": "campTierId", "value": "", "type": "string" },
+    { "key": "campImageId", "value": "", "type": "string" },
+    { "key": "testimonialId", "value": "", "type": "string" },
     { "key": "serviceId", "value": "", "type": "string" },
     { "key": "consultationId", "value": "", "type": "string" },
     { "key": "paymentRef", "value": "", "type": "string" },
@@ -357,16 +360,56 @@
             "auth": { "type": "noauth" },
             "method": "GET",
             "url": { "raw": "{{baseUrl}}/api/camps", "host": ["{{baseUrl}}"], "path": ["api", "camps"] },
-            "description": "Returns all upcoming and ongoing camps. No auth required."
+            "description": "Returns all upcoming and ongoing camps. No auth required. Each camp includes tiers, gallery images, published testimonials, benefits, seatsTaken, and seatsRemaining."
+          }
+        },
+        {
+          "name": "Get Current Camp — Featured (Public)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.data && res.data.id) {",
+                  "  pm.collectionVariables.set('campId', res.data.id);",
+                  "}",
+                  "if (res.data && res.data.tiers && res.data.tiers.length > 0) {",
+                  "  pm.collectionVariables.set('campTierId', res.data.tiers[0].id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/camps/current", "host": ["{{baseUrl}}"], "path": ["api", "camps", "current"] },
+            "description": "Next upcoming camp (earliest UPCOMING) for the landing page. Test script saves campId and first campTierId when present."
           }
         },
         {
           "name": "Get Camp by ID (Public)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.data && res.data.tiers && res.data.tiers.length > 0) {",
+                  "  pm.collectionVariables.set('campTierId', res.data.tiers[0].id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "auth": { "type": "noauth" },
             "method": "GET",
             "url": { "raw": "{{baseUrl}}/api/camps/{{campId}}", "host": ["{{baseUrl}}"], "path": ["api", "camps", "{{campId}}"] },
-            "description": "Returns full camp details including registration count."
+            "description": "Returns full camp details including tiers, images, published testimonials, benefits, seatsTaken, and seatsRemaining."
           }
         },
         {
@@ -388,9 +431,16 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
             "url": { "raw": "{{baseUrl}}/api/camps/{{campId}}/register", "host": ["{{baseUrl}}"], "path": ["api", "camps", "{{campId}}", "register"] },
-            "description": "Registers the logged-in user for a camp. After this, initialize payment using the returned registration ID."
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tierId\": \"{{campTierId}}\",\n  \"applicantDetails\": {\n    \"fullName\": \"Jane Doe\",\n    \"phone\": \"+2348000000000\",\n    \"emergencyContact\": {\n      \"name\": \"John Doe\",\n      \"phone\": \"+2348000000001\",\n      \"relationship\": \"Spouse\"\n    },\n    \"dietaryRestrictions\": \"Vegetarian\",\n    \"accommodationPreference\": \"Ground floor if possible\",\n    \"partyMembers\": [],\n    \"notes\": \"First time attending.\"\n  }\n}"
+            },
+            "description": "Submits a camp application. tierId is required when the camp has tiers. applicantDetails captures dietary info, emergency contact, partyMembers for Couple/Family, etc. Initialize payment with campRegistrationId; amount uses the tier price."
           }
         },
         {
@@ -417,17 +467,19 @@
             "body": {
               "mode": "formdata",
               "formdata": [
-                { "key": "title", "value": "Weekend Wellness Retreat", "type": "text" },
-                { "key": "description", "value": "A transformative 3-day wellness retreat in nature.", "type": "text" },
-                { "key": "location", "value": "Yankari Game Reserve, Bauchi", "type": "text" },
-                { "key": "price", "value": "75000", "type": "text" },
-                { "key": "capacity", "value": "30", "type": "text" },
+                { "key": "title", "value": "Sit-With-PD Annual Camping Programme", "type": "text" },
+                { "key": "description", "value": "A presence-based retreat to pause, reflect, and reconnect.", "type": "text" },
+                { "key": "location", "value": "Retreat venue TBD", "type": "text" },
+                { "key": "currency", "value": "USD", "type": "text", "description": "ISO currency code (e.g. USD, NGN)" },
+                { "key": "price", "value": "", "type": "text", "description": "Optional; tier prices are authoritative for payment" },
+                { "key": "benefits", "value": "[\"Pause and reconnect with yourself\",\"Experience guided reflective practices\",\"Build meaningful connections\",\"Gain clarity and emotional balance\"]", "type": "text", "description": "JSON array or comma-separated list" },
+                { "key": "capacity", "value": "30", "type": "text", "description": "Total seats (sum of registration participantCount)" },
                 { "key": "startDate", "value": "2026-05-01T08:00:00.000Z", "type": "text" },
                 { "key": "endDate", "value": "2026-05-03T17:00:00.000Z", "type": "text" },
                 { "key": "thumbnail", "type": "file", "src": "", "description": "Optional: camp thumbnail image" }
               ]
             },
-            "description": "Admin only. Creates a new camp listing."
+            "description": "Admin only. Creates a camp. Add participation tiers separately. benefits powers the Why attend list; price is optional when using tiers."
           }
         },
         {
@@ -440,10 +492,12 @@
               "mode": "formdata",
               "formdata": [
                 { "key": "status", "value": "UPCOMING", "type": "text", "description": "UPCOMING | ONGOING | COMPLETED | CANCELLED" },
+                { "key": "currency", "value": "USD", "type": "text" },
+                { "key": "benefits", "value": "[\"Pause and reconnect with yourself\",\"Experience guided reflective practices\",\"Build meaningful connections\",\"Gain clarity and emotional balance\"]", "type": "text" },
                 { "key": "capacity", "value": "40", "type": "text" }
               ]
             },
-            "description": "Admin only. Updates camp details. Status options: UPCOMING, ONGOING, COMPLETED, CANCELLED."
+            "description": "Admin only. Partial update. Status options: UPCOMING, ONGOING, COMPLETED, CANCELLED. Patch benefits, currency, capacity, etc."
           }
         },
         {
@@ -461,7 +515,212 @@
             "method": "GET",
             "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
             "url": { "raw": "{{baseUrl}}/api/camps/{{campId}}/participants", "host": ["{{baseUrl}}"], "path": ["api", "camps", "{{campId}}", "participants"] },
-            "description": "Admin only. Returns a list of all users registered for a specific camp with payment status."
+            "description": "Admin only. Lists applicants with tier, payment status, participantCount, and applicantDetails."
+          }
+        },
+        {
+          "name": "[ADMIN] Create Camp Tier",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.data && res.data.id) {",
+                  "  pm.collectionVariables.set('campTierId', res.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/camps/{{campId}}/tiers", "host": ["{{baseUrl}}"], "path": ["api", "camps", "{{campId}}", "tiers"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"label\": \"Individual\",\n  \"description\": \"Single attendee\",\n  \"price\": 500,\n  \"inclusions\": [\"Accommodation\", \"Meals\", \"Guided sessions\", \"Community activities\", \"Reflection materials\"],\n  \"seatsPerUnit\": 1,\n  \"maxUnits\": null,\n  \"order\": 0,\n  \"isFeatured\": false\n}"
+            },
+            "description": "Admin only. Creates a participation package. seatsPerUnit consumes camp capacity seats per purchase."
+          }
+        },
+        {
+          "name": "[ADMIN] Update Camp Tier",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/camps/{{campId}}/tiers/{{campTierId}}", "host": ["{{baseUrl}}"], "path": ["api", "camps", "{{campId}}", "tiers", "{{campTierId}}"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"label\": \"Couple\",\n  \"price\": 750,\n  \"seatsPerUnit\": 2,\n  \"isFeatured\": true,\n  \"order\": 1\n}"
+            },
+            "description": "Admin only. Partial tier update."
+          }
+        },
+        {
+          "name": "[ADMIN] Delete Camp Tier",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/camps/{{campId}}/tiers/{{campTierId}}", "host": ["{{baseUrl}}"], "path": ["api", "camps", "{{campId}}", "tiers", "{{campTierId}}"] },
+            "description": "Admin only. Deletes a tier."
+          }
+        },
+        {
+          "name": "[ADMIN] Upload Camp Gallery Images",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.data && res.data.length && res.data[0].id) {",
+                  "  pm.collectionVariables.set('campImageId', res.data[0].id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/camps/{{campId}}/images", "host": ["{{baseUrl}}"], "path": ["api", "camps", "{{campId}}", "images"] },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "captions", "value": "[\"Group discussion\",\"Journaling\",\"Walking in nature\",\"Calm conversations\"]", "type": "text", "description": "Optional JSON array aligned with files" },
+                { "key": "images", "type": "file", "src": "", "description": "Repeat field images for multiple uploads (max 12)" },
+                { "key": "images", "type": "file", "src": "" }
+              ]
+            },
+            "description": "Admin only. Multipart field images (repeat). Optional captions JSON array."
+          }
+        },
+        {
+          "name": "[ADMIN] Update Camp Gallery Image",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/camps/{{campId}}/images/{{campImageId}}", "host": ["{{baseUrl}}"], "path": ["api", "camps", "{{campId}}", "images", "{{campImageId}}"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"caption\": \"Walking in nature\",\n  \"order\": 2\n}"
+            },
+            "description": "Admin only. Update caption/order for a gallery image."
+          }
+        },
+        {
+          "name": "[ADMIN] Delete Camp Gallery Image",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/camps/{{campId}}/images/{{campImageId}}", "host": ["{{baseUrl}}"], "path": ["api", "camps", "{{campId}}", "images", "{{campImageId}}"] },
+            "description": "Admin only. Deletes a gallery image record."
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "💬 Testimonials",
+      "item": [
+        {
+          "name": "Get Testimonials (Public)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/testimonials", "host": ["{{baseUrl}}"], "path": ["api", "testimonials"] },
+            "description": "Published testimonials. Add ?campId={{campId}} to filter by camp."
+          }
+        },
+        {
+          "name": "Get Testimonial by ID (Public)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/testimonials/{{testimonialId}}", "host": ["{{baseUrl}}"], "path": ["api", "testimonials", "{{testimonialId}}"] },
+            "description": "Single testimonial by id."
+          }
+        },
+        {
+          "name": "[ADMIN] Get All Testimonials",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/testimonials/admin/all", "host": ["{{baseUrl}}"], "path": ["api", "testimonials", "admin", "all"] },
+            "description": "Admin only. All testimonials including unpublished. Optional ?campId filter."
+          }
+        },
+        {
+          "name": "[ADMIN] Create Testimonial",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.data && res.data.id) {",
+                  "  pm.collectionVariables.set('testimonialId', res.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/testimonials", "host": ["{{baseUrl}}"], "path": ["api", "testimonials"] },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "campId", "value": "{{campId}}", "type": "text", "description": "Optional — clear for site-wide" },
+                { "key": "name", "value": "Ifeoma", "type": "text" },
+                { "key": "role", "value": "Camp Participant", "type": "text" },
+                { "key": "quote", "value": "A transformative experience — I left with real clarity and peace.", "type": "text" },
+                { "key": "isPublished", "value": "true", "type": "text" },
+                { "key": "order", "value": "0", "type": "text" },
+                { "key": "avatar", "type": "file", "src": "", "description": "Optional avatar image" }
+              ]
+            },
+            "description": "Admin only. Multipart create with optional avatar file."
+          }
+        },
+        {
+          "name": "[ADMIN] Update Testimonial",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/testimonials/{{testimonialId}}", "host": ["{{baseUrl}}"], "path": ["api", "testimonials", "{{testimonialId}}"] },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "quote", "value": "Updated quote text after editing.", "type": "text" },
+                { "key": "isPublished", "value": "true", "type": "text" },
+                { "key": "avatar", "type": "file", "src": "", "description": "Optional new avatar" }
+              ]
+            },
+            "description": "Admin only. Multipart partial update."
+          }
+        },
+        {
+          "name": "[ADMIN] Delete Testimonial",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/testimonials/{{testimonialId}}", "host": ["{{baseUrl}}"], "path": ["api", "testimonials", "{{testimonialId}}"] },
+            "description": "Admin only. Deletes a testimonial."
           }
         }
       ]
@@ -651,7 +910,7 @@
               "mode": "raw",
               "raw": "{\n  \"type\": \"CAMP\",\n  \"itemId\": \"{{campRegistrationId}}\"\n}"
             },
-            "description": "Initializes a Paystack payment for a camp registration. itemId must be the registration ID (not camp ID)."
+            "description": "Initializes Paystack for a camp application. itemId is the camp registration id. Amount uses the tier price (or legacy camp.price)."
           }
         },
         {

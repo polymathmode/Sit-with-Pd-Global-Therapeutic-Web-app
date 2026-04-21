@@ -1,12 +1,12 @@
 $kind: http-request
-description: Login with existing credentials. Use admin@wellbeing.com /
-  Admin@1234 for the seeded admin account.
+name: Login
+description: Login with existing credentials. Use admin@wellbeing.com / Admin@1234 for the seeded admin account.
 url: "{{baseUrl}}/api/auth/login"
 method: POST
 headers:
   Content-Type: application/json
 body:
-  type: text
+  type: json
   content: |-
     {
       "email": "admin@wellbeing.com",

@@ -1,6 +1,7 @@
 $kind: http-request
 description: "Admin only. Updates camp details. Status options: UPCOMING,
-  ONGOING, COMPLETED, CANCELLED."
+  ONGOING, COMPLETED, CANCELLED. You can patch benefits, currency, and other
+  fields; only sent fields are updated."
 url: "{{baseUrl}}/api/camps/{{campId}}"
 method: PATCH
 headers:
@@ -12,6 +13,13 @@ body:
       key: status
       value: UPCOMING
       description: UPCOMING | ONGOING | COMPLETED | CANCELLED
+    - type: text
+      key: currency
+      value: USD
+    - type: text
+      key: benefits
+      value: '["Pause and reconnect with yourself","Experience guided reflective practices","Build meaningful connections","Gain clarity and emotional balance"]'
+      description: JSON array or comma-separated list
     - type: text
       key: capacity
       value: "40"

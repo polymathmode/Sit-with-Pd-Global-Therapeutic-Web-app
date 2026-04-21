@@ -1,12 +1,19 @@
 import { Router } from 'express';
 import {
   getAllCamps,
+  getCurrentCamp,
   getCampById,
   registerForCamp,
   createCamp,
   updateCamp,
   deleteCamp,
   getCampParticipants,
+  createCampTier,
+  updateCampTier,
+  deleteCampTier,
+  uploadCampImages,
+  updateCampImage,
+  deleteCampImage,
 } from '../controllers/camp.controller';
 import { authenticate, adminOnly } from '../middleware/auth.middleware';
 import { uploadImage } from '../middleware/upload.middleware';
@@ -14,16 +21,34 @@ import { uploadImage } from '../middleware/upload.middleware';
 const router = Router();
 
 // ── Public ────────────────────────────────────────────────────────────────────
+// Declare /current before /:id so it isn't captured by the param route.
+router.get('/current', getCurrentCamp);
 router.get('/', getAllCamps);
 router.get('/:id', getCampById);
 
 // ── User ──────────────────────────────────────────────────────────────────────
 router.post('/:id/register', authenticate, registerForCamp);
 
-// ── Admin ─────────────────────────────────────────────────────────────────────
+// ── Admin: Camp CRUD ──────────────────────────────────────────────────────────
 router.post('/', authenticate, adminOnly, uploadImage.single('thumbnail'), createCamp);
 router.patch('/:id', authenticate, adminOnly, uploadImage.single('thumbnail'), updateCamp);
 router.delete('/:id', authenticate, adminOnly, deleteCamp);
 router.get('/:id/participants', authenticate, adminOnly, getCampParticipants);
+
+// ── Admin: Tiers (Individual / Couple / Family packages) ─────────────────────
+router.post('/:campId/tiers', authenticate, adminOnly, createCampTier);
+router.patch('/:campId/tiers/:tierId', authenticate, adminOnly, updateCampTier);
+router.delete('/:campId/tiers/:tierId', authenticate, adminOnly, deleteCampTier);
+
+// ── Admin: Gallery images ─────────────────────────────────────────────────────
+router.post(
+  '/:campId/images',
+  authenticate,
+  adminOnly,
+  uploadImage.array('images', 12),
+  uploadCampImages
+);
+router.patch('/:campId/images/:imageId', authenticate, adminOnly, updateCampImage);
+router.delete('/:campId/images/:imageId', authenticate, adminOnly, deleteCampImage);
 
 export default router;

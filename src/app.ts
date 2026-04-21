@@ -8,6 +8,7 @@ import 'dotenv/config';
 import authRoutes from './routes/auth.routes';
 import programRoutes from './routes/program.routes';
 import campRoutes from './routes/camp.routes';
+import testimonialRoutes from './routes/testimonial.routes';
 import consultationRoutes from './routes/consultation.routes';
 import paymentRoutes from './routes/payment.routes';
 import { dashboardRouter, adminRouter } from './routes/admin.routes';
@@ -88,6 +89,7 @@ app.get('/health', (_req, res) => {
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/programs', programRoutes);
 app.use('/api/camps', campRoutes);
+app.use('/api/testimonials', testimonialRoutes);
 app.use('/api/consultations', consultationRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/dashboard', dashboardRouter);

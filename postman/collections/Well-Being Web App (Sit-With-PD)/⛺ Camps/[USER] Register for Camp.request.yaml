@@ -1,10 +1,34 @@
 $kind: http-request
-description: Registers the logged-in user for a camp. After this, initialize
-  payment using the returned registration ID.
+description: >-
+  Submits a camp application for the logged-in user. Body requires `tierId` when
+  the camp has participation tiers. Include `applicantDetails` (dietary info,
+  emergency contact, partyMembers for Couple/Family, etc.). After success,
+  initialize payment with `campRegistrationId`; Paystack amount uses the tier
+  price.
 url: "{{baseUrl}}/api/camps/{{campId}}/register"
 method: POST
 headers:
   Authorization: Bearer {{authToken}}
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "tierId": "{{campTierId}}",
+      "applicantDetails": {
+        "fullName": "Jane Doe",
+        "phone": "+2348000000000",
+        "emergencyContact": {
+          "name": "John Doe",
+          "phone": "+2348000000001",
+          "relationship": "Spouse"
+        },
+        "dietaryRestrictions": "Vegetarian",
+        "accommodationPreference": "Ground floor if possible",
+        "partyMembers": [],
+        "notes": "First time attending."
+      }
+    }
 scripts:
   - type: afterResponse
     code: |-

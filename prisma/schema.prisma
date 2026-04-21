@@ -49,20 +49,20 @@ enum ModuleType {
 }
 
 model User {
-  id                       String    @id @default(cuid())
-  firstName                String
-  lastName                 String
-  email                    String    @unique
-  password                 String?
-  googleId                 String?   @unique
-  role                     Role      @default(USER)
-  isEmailVerified          Boolean   @default(false)
-  emailVerificationToken   String?
-  emailVerificationExpiry  DateTime?
-  passwordResetToken       String?
-  passwordResetExpiry      DateTime?
-  createdAt                DateTime  @default(now())
-  updatedAt                DateTime  @updatedAt
+  id                      String    @id @default(cuid())
+  firstName               String
+  lastName                String
+  email                   String    @unique
+  password                String?
+  googleId                String?   @unique
+  role                    Role      @default(USER)
+  isEmailVerified         Boolean   @default(false)
+  emailVerificationToken  String?
+  emailVerificationExpiry DateTime?
+  passwordResetToken      String?
+  passwordResetExpiry     DateTime?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
 
   purchases         Purchase[]
   campRegistrations CampRegistration[]
@@ -90,7 +90,7 @@ model Program {
   durationWeeks    Int?
   hoursPerWeek     Float?
   certificateLabel String?
-  learningOutcomes String[]        // Program-level learning objectives (Step 2 of form)
+  learningOutcomes String[] // Program-level learning objectives (Step 2 of form)
   startDate        DateTime?
   facilitatorName  String?
   facilitatorEmail String?
@@ -112,12 +112,12 @@ model ProgramWeek {
   title              String
   description        String?
   learningObjectives String[] // Per-week learning objectives added via the modal
-  order              Int      // Determines "Week 1", "Week 2" display order
+  order              Int // Determines "Week 1", "Week 2" display order
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  program Program        @relation(fields: [programId], references: [id], onDelete: Cascade)
+  program Program         @relation(fields: [programId], references: [id], onDelete: Cascade)
   modules ProgramModule[]
 
   @@map("program_weeks")
@@ -131,10 +131,10 @@ model ProgramModule {
   title       String
   description String?
   type        ModuleType @default(OTHER)
-  duration    String?    // Free-text: "45 min", "1 hr", etc. (matches the design's Duration field)
-  contentUrl  String?    // YouTube, Vimeo, Google Docs URL (Content URL field)
-  embedCode   String?    // Raw iframe/HTML embed (Embed Code field)
-  order       Int        // Module display order within the week
+  duration    String? // Free-text: "45 min", "1 hr", etc. (matches the design's Duration field)
+  contentUrl  String? // YouTube, Vimeo, Google Docs URL (Content URL field)
+  embedCode   String? // Raw iframe/HTML embed (Embed Code field)
+  order       Int // Module display order within the week
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -163,28 +163,91 @@ model Camp {
   title       String
   description String
   location    String
-  price       Float
-  capacity    Int
+  // Optional fallback/display price. Source of truth for registration amount is the selected CampTier.
+  price       Float?
+  currency    String     @default("USD")
+  capacity    Int // Total seats across all tiers (sum of registration.participantCount must not exceed this)
   startDate   DateTime
   endDate     DateTime
   thumbnail   String?
+  benefits    String[] // "Why Attend" bullet list (e.g. "Pause and reconnect with yourself")
   status      CampStatus @default(UPCOMING)
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
+  tiers         CampTier[]
+  images        CampImage[]
+  testimonials  Testimonial[]
   registrations CampRegistration[]
 
   @@map("camps")
 }
 
-model CampRegistration {
+// Participation packages (e.g. Individual $500, Couple $750, Family $1500).
+model CampTier {
+  id           String   @id @default(cuid())
+  campId       String
+  label        String // "Individual", "Couple", "Family", etc.
+  description  String?
+  price        Float
+  inclusions   String[] // ["Accommodation", "Meals", "Guided sessions", ...]
+  seatsPerUnit Int      @default(1) // 1 for Individual, 2 for Couple, 4-5 for Family — consumed from camp.capacity
+  maxUnits     Int? // Optional cap on how many of this tier can be sold (null = only bound by camp capacity)
+  order        Int      @default(0)
+  isFeatured   Boolean  @default(false) // Design highlights the middle tier (Couple)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  camp          Camp               @relation(fields: [campId], references: [id], onDelete: Cascade)
+  registrations CampRegistration[]
+
+  @@map("camp_tiers")
+}
+
+// Gallery photos for the "A Glimpse Into the Experience" section.
+model CampImage {
   id        String   @id @default(cuid())
-  userId    String
   campId    String
+  url       String
+  caption   String?
+  order     Int      @default(0)
   createdAt DateTime @default(now())
 
-  user    User     @relation(fields: [userId], references: [id])
-  camp    Camp     @relation(fields: [campId], references: [id])
+  camp Camp @relation(fields: [campId], references: [id], onDelete: Cascade)
+
+  @@map("camp_images")
+}
+
+// Testimonials for camps (campId) or site-wide (campId = null).
+model Testimonial {
+  id          String   @id @default(cuid())
+  campId      String?
+  name        String
+  role        String? // "Camp Participant", "Camp Attendee", "Program Student", etc.
+  quote       String
+  avatarUrl   String?
+  isPublished Boolean  @default(true)
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  camp Camp? @relation(fields: [campId], references: [id], onDelete: SetNull)
+
+  @@map("testimonials")
+}
+
+model CampRegistration {
+  id               String   @id @default(cuid())
+  userId           String
+  campId           String
+  tierId           String?
+  participantCount Int      @default(1) // Seats consumed (copied from tier.seatsPerUnit at creation)
+  applicantDetails Json? // Dietary, emergency contact, partner/family names, accommodation prefs, etc.
+  createdAt        DateTime @default(now())
+
+  user    User      @relation(fields: [userId], references: [id])
+  camp    Camp      @relation(fields: [campId], references: [id])
+  tier    CampTier? @relation(fields: [tierId], references: [id], onDelete: SetNull)
   payment Payment?
 
   @@unique([userId, campId])
