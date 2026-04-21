@@ -768,6 +768,27 @@
             "url": { "raw": "{{baseUrl}}/api/admin/users/{{userId}}", "host": ["{{baseUrl}}"], "path": ["api", "admin", "users", "{{userId}}"] },
             "description": "Admin only. Full user profile including all purchases, camp registrations, consultations, and payment history."
           }
+        },
+        {
+          "name": "Get Cal.com event types",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/cal/event-types",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "cal", "event-types"],
+              "query": [
+                {
+                  "key": "username",
+                  "value": "",
+                  "description": "Optional. Cal.com username to scope event types (see Cal API).",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Admin only. Proxies Cal.com GET /v2/event-types using CAL_API_KEY. Returns calEventTypeId, title, slug, lengthInMinutes, calBookingUrl, username per event. Enable the username query param if needed."
+          }
         }
       ]
     }

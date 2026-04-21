@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import prisma from '../config/prisma';
-import { catchAsync } from '../middleware/error.middleware';
+import { fetchCalEventTypesList } from '../lib/cal';
+import { catchAsync, AppError } from '../middleware/error.middleware';
 
 // ── Dashboard Stats ───────────────────────────────────────────────────────────
 // GET /api/admin/stats
@@ -100,4 +101,25 @@ export const getUserById = catchAsync(async (req: Request, res: Response) => {
   });
 
   res.json({ success: true, message: 'User detail fetched.', data: user });
+});
+
+// ── Cal.com event types (admin picker) ────────────────────────────────────────
+// GET /api/admin/cal/event-types?username=optional-cal-username
+export const getCalEventTypes = catchAsync(async (req: Request, res: Response) => {
+  if (!process.env.CAL_API_KEY?.trim()) {
+    throw new AppError('Cal.com API is not configured (CAL_API_KEY).', 503);
+  }
+
+  const username =
+    typeof req.query.username === 'string' && req.query.username.trim() !== ''
+      ? req.query.username.trim()
+      : undefined;
+
+  try {
+    const data = await fetchCalEventTypesList({ username });
+    res.json({ success: true, message: 'Cal.com event types fetched.', data });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Cal.com request failed';
+    throw new AppError(msg, 502);
+  }
 });

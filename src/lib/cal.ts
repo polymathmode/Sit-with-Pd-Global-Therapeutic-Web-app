@@ -9,6 +9,87 @@ import crypto from 'crypto';
 
 const CAL_API_BASE = process.env.CAL_API_BASE_URL || 'https://api.cal.com';
 
+/** @see https://cal.com/docs/api-reference/v2/event-types/get-all-event-types */
+const CAL_API_VERSION_EVENT_TYPES = '2024-06-14';
+
+export type CalEventTypeListItem = {
+  calEventTypeId: number;
+  title: string;
+  slug: string;
+  lengthInMinutes: number;
+  calBookingUrl: string;
+  username: string | null;
+};
+
+/**
+ * Lists event types for the authenticated Cal.com account (API key).
+ * Optional `username` scopes results to that Cal username (see Cal API docs).
+ */
+export async function fetchCalEventTypesList(params: { username?: string }): Promise<CalEventTypeListItem[]> {
+  const key = process.env.CAL_API_KEY;
+  if (!key) {
+    throw new Error('CAL_API_KEY is not configured');
+  }
+
+  const url = new URL(`${CAL_API_BASE}/v2/event-types`);
+  if (params.username) {
+    url.searchParams.set('username', params.username);
+  }
+  url.searchParams.set('sortCreatedAt', 'asc');
+
+  const res = await fetch(url.toString(), {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${key}`,
+      'cal-api-version': CAL_API_VERSION_EVENT_TYPES,
+    },
+  });
+
+  const rawText = await res.text();
+  let json: { status?: string; data?: Array<Record<string, unknown>>; message?: string };
+  try {
+    json = JSON.parse(rawText) as typeof json;
+  } catch {
+    throw new Error(`Cal.com API returned non-JSON (${res.status})`);
+  }
+
+  if (!res.ok) {
+    const detail = json.message || rawText.slice(0, 500);
+    throw new Error(`Cal.com API error (${res.status}): ${detail || res.statusText}`);
+  }
+
+  if (json.status !== 'success' || !Array.isArray(json.data)) {
+    throw new Error('Unexpected response from Cal.com event-types API');
+  }
+
+  return json.data.map((item) => {
+    const id = item.id;
+    const title = item.title;
+    const slug = item.slug;
+    const lengthInMinutes = item.lengthInMinutes;
+    const bookingUrl = item.bookingUrl;
+    if (typeof id !== 'number' || typeof title !== 'string' || typeof slug !== 'string') {
+      throw new Error('Invalid event type entry from Cal.com API');
+    }
+    const len = typeof lengthInMinutes === 'number' ? lengthInMinutes : 0;
+    const users = item.users as Array<{ username?: string | null }> | undefined;
+    const username = users?.[0]?.username ?? null;
+    let calBookingUrl =
+      typeof bookingUrl === 'string' && bookingUrl.trim() !== '' ? bookingUrl.trim() : '';
+    if (!calBookingUrl && username) {
+      calBookingUrl = `https://cal.com/${encodeURIComponent(username)}/${encodeURIComponent(slug)}`;
+    }
+    return {
+      calEventTypeId: id,
+      title,
+      slug,
+      lengthInMinutes: len,
+      calBookingUrl,
+      username,
+    };
+  });
+}
+
 /**
  * Verifies Cal.com webhook per https://cal.com/docs/developing/guides/automation/webhooks
  * HMAC-SHA256 of raw body; compare to x-cal-signature-256 header.

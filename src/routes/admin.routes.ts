@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { getDashboard, getProgramContent } from '../controllers/dashboard.controller';
-import { getDashboardStats, getAllUsers, getUserById } from '../controllers/admin.controller';
+import { getDashboardStats, getAllUsers, getUserById, getCalEventTypes } from '../controllers/admin.controller';
 import { authenticate, adminOnly } from '../middleware/auth.middleware';
 
 // ── User Dashboard ────────────────────────────────────────────────────────────
@@ -15,3 +15,4 @@ export const adminRouter = Router();
 adminRouter.get('/stats', authenticate, adminOnly, getDashboardStats);
 adminRouter.get('/users', authenticate, adminOnly, getAllUsers);
 adminRouter.get('/users/:id', authenticate, adminOnly, getUserById);
+adminRouter.get('/cal/event-types', authenticate, adminOnly, getCalEventTypes);
