@@ -276,28 +276,35 @@ export const createCampTier = catchAsync(async (req: AuthRequest, res: Response)
   const { label, description, price, inclusions, seatsPerUnit, maxUnits, order, isFeatured } =
     req.body;
 
-  if (!label || price === undefined) {
+  const labelNorm = typeof label === 'string' ? label.trim() : '';
+  if (!labelNorm || price === undefined) {
     throw new AppError('label and price are required.', 400);
   }
 
   const camp = await prisma.camp.findUnique({ where: { id: campId } });
   if (!camp) throw new AppError('Camp not found.', 404);
 
-  const tier = await prisma.campTier.create({
-    data: {
-      campId,
-      label,
-      description,
-      price: parseFloat(price),
-      inclusions: parseStringArray(inclusions),
-      seatsPerUnit: seatsPerUnit ? parseInt(seatsPerUnit) : 1,
-      maxUnits: maxUnits ? parseInt(maxUnits) : null,
-      order: order ? parseInt(order) : 0,
-      isFeatured: parseBoolean(isFeatured),
-    },
-  });
-
-  res.status(201).json({ success: true, message: 'Tier created.', data: tier });
+  try {
+    const tier = await prisma.campTier.create({
+      data: {
+        campId,
+        label: labelNorm,
+        description,
+        price: parseFloat(price),
+        inclusions: parseStringArray(inclusions),
+        seatsPerUnit: seatsPerUnit ? parseInt(seatsPerUnit) : 1,
+        maxUnits: maxUnits ? parseInt(maxUnits) : null,
+        order: order ? parseInt(order) : 0,
+        isFeatured: parseBoolean(isFeatured),
+      },
+    });
+    res.status(201).json({ success: true, message: 'Tier created.', data: tier });
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+      throw new AppError('A tier with this label already exists for this camp.', 409);
+    }
+    throw e;
+  }
 });
 
 // PATCH /api/camps/:campId/tiers/:tierId — Update a tier
@@ -309,21 +316,33 @@ export const updateCampTier = catchAsync(async (req: AuthRequest, res: Response)
   const existing = await prisma.campTier.findUnique({ where: { id: tierId } });
   if (!existing || existing.campId !== campId) throw new AppError('Tier not found.', 404);
 
-  const tier = await prisma.campTier.update({
-    where: { id: tierId },
-    data: {
-      ...(label && { label }),
-      ...(description !== undefined && { description }),
-      ...(price !== undefined && price !== '' && { price: parseFloat(price) }),
-      ...(inclusions !== undefined && { inclusions: parseStringArray(inclusions) }),
-      ...(seatsPerUnit !== undefined && { seatsPerUnit: parseInt(seatsPerUnit) }),
-      ...(maxUnits !== undefined && { maxUnits: maxUnits === null || maxUnits === '' ? null : parseInt(maxUnits) }),
-      ...(order !== undefined && { order: parseInt(order) }),
-      ...(isFeatured !== undefined && { isFeatured: parseBoolean(isFeatured) }),
-    },
-  });
+  const labelNorm =
+    label !== undefined && typeof label === 'string' ? label.trim() : undefined;
+  if (labelNorm !== undefined && !labelNorm) {
+    throw new AppError('label cannot be empty.', 400);
+  }
 
-  res.json({ success: true, message: 'Tier updated.', data: tier });
+  try {
+    const tier = await prisma.campTier.update({
+      where: { id: tierId },
+      data: {
+        ...(labelNorm !== undefined && { label: labelNorm }),
+        ...(description !== undefined && { description }),
+        ...(price !== undefined && price !== '' && { price: parseFloat(price) }),
+        ...(inclusions !== undefined && { inclusions: parseStringArray(inclusions) }),
+        ...(seatsPerUnit !== undefined && { seatsPerUnit: parseInt(seatsPerUnit) }),
+        ...(maxUnits !== undefined && { maxUnits: maxUnits === null || maxUnits === '' ? null : parseInt(maxUnits) }),
+        ...(order !== undefined && { order: parseInt(order) }),
+        ...(isFeatured !== undefined && { isFeatured: parseBoolean(isFeatured) }),
+      },
+    });
+    res.json({ success: true, message: 'Tier updated.', data: tier });
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+      throw new AppError('A tier with this label already exists for this camp.', 409);
+    }
+    throw e;
+  }
 });
 
 // DELETE /api/camps/:campId/tiers/:tierId — Remove a tier

@@ -201,6 +201,7 @@ model CampTier {
   camp          Camp               @relation(fields: [campId], references: [id], onDelete: Cascade)
   registrations CampRegistration[]
 
+  @@unique([campId, label])
   @@map("camp_tiers")
 }
 
