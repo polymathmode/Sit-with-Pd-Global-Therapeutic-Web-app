@@ -1,0 +1,11 @@
+$kind: http-request
+description: >-
+  Public. Returns all **published** blog posts, newest first. Optional query
+  `?category=` — one of `REFLECTION`, `WELLBEING`, or `PERSONAL_GROWTH` (e.g.
+  `{{baseUrl}}/api/blog?category=WELLBEING`). Omit the query to list all
+  categories.
+url: "{{baseUrl}}/api/blog"
+method: GET
+auth:
+  type: noauth
+order: 1000

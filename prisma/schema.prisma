@@ -39,6 +39,13 @@ enum CampStatus {
   CANCELLED
 }
 
+// Blog listing filters (design: Reflection, Wellbeing, Personal Growth)
+enum BlogCategory {
+  REFLECTION
+  WELLBEING
+  PERSONAL_GROWTH
+}
+
 // Matches the "Type" field in the Add Module modal (Reading, Video, Quiz, etc.)
 enum ModuleType {
   VIDEO
@@ -235,6 +242,23 @@ model Testimonial {
   camp Camp? @relation(fields: [campId], references: [id], onDelete: SetNull)
 
   @@map("testimonials")
+}
+
+model BlogPost {
+  id              String       @id @default(cuid())
+  slug            String       @unique
+  title           String
+  excerpt         String
+  body            String
+  readTimeMinutes Int          @default(5)
+  category        BlogCategory
+  coverImageUrl   String?
+  isPublished     Boolean      @default(false)
+  publishedAt     DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@map("blog_posts")
 }
 
 model CampRegistration {

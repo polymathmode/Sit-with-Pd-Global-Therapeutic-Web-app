@@ -1,0 +1,12 @@
+$kind: http-request
+description: >-
+  Admin only. Returns every post including **drafts** (not public). Use the
+  collection’s bearer token after **Login** as a seeded or promoted admin
+  (e.g. admin@wellbeing.com).
+url: "{{baseUrl}}/api/admin/blog"
+method: GET
+auth:
+  type: noauth
+headers:
+  Authorization: Bearer {{authToken}}
+order: 3000

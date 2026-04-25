@@ -1,0 +1,10 @@
+$kind: http-request
+description: >-
+  Public. Returns one **published** post by URL slug, including `body` for
+  the article view. Set `blogSlug` (collection variable) or replace in the
+  path. Returns 404 if the post is a draft or missing.
+url: "{{baseUrl}}/api/blog/{{blogSlug}}"
+method: GET
+auth:
+  type: noauth
+order: 2000

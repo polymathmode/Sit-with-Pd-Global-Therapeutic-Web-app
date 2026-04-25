@@ -1,0 +1,31 @@
+$kind: http-request
+description: >-
+  Admin only. `PATCH` with `multipart/form-data` — only include form parts you
+  want to change (omit fields entirely to leave them unchanged). `isPublished`
+  true sets `publishedAt` the first time; false clears it. Optional new
+  `coverImage` or `coverImageUrl`. Requires `blogPostId`. To change title,
+  excerpt, or body, add text parts with non-empty values (sending empty strings
+  fails validation).
+url: "{{baseUrl}}/api/admin/blog/{{blogPostId}}"
+method: PATCH
+headers:
+  Authorization: Bearer {{authToken}}
+body:
+  type: formdata
+  content:
+    - type: text
+      key: readTimeMinutes
+      value: "7"
+    - type: text
+      key: isPublished
+      value: "true"
+    - type: text
+      key: category
+      value: REFLECTION
+      description: Optional — REFLECTION | WELLBEING | PERSONAL_GROWTH
+    - type: file
+      key: coverImage
+      src:
+        - ""
+      description: Optional — add a `coverImageUrl` text part in Postman if updating URL (do not send empty `coverImageUrl`; that clears the image)
+order: 6000
