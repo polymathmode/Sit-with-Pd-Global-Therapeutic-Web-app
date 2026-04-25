@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Well-Being Platform API",
-    "description": "Complete API collection for the Well-Being Web Platform. \n\n**Setup:**\n1. Set the `baseUrl` variable to your server (default: http://localhost:5000)\n2. Run **Register** or **Login** first — the token auto-saves to `authToken`\n3. All protected routes automatically use the saved token via collection-level auth\n\n**Seeded Admin:**\n- Email: admin@wellbeing.com\n- Password: Admin@1234",
+    "description": "Complete API collection for the Well-Being Web Platform. \n\n**Setup:**\n1. Set the `baseUrl` variable to your server (default: http://localhost:5000)\n2. Run **Register** or **Login** first — the token auto-saves to `authToken`\n3. All protected routes automatically use the saved token via collection-level auth\n4. **Blog:** **Create** / **Create (Draft)** test scripts save `blogPostId` and `blogSlug`. Admin update/delete and **Get by ID (admin)** use `blogPostId`. Public **Get by Slug** uses `blogSlug`.\n\n**Seeded Admin:**\n- Email: admin@wellbeing.com\n- Password: Admin@1234",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -28,7 +28,9 @@
     { "key": "consultationId", "value": "", "type": "string" },
     { "key": "paymentRef", "value": "", "type": "string" },
     { "key": "userId", "value": "", "type": "string" },
-    { "key": "verifyToken", "value": "", "type": "string" }
+    { "key": "verifyToken", "value": "", "type": "string" },
+    { "key": "blogPostId", "value": "", "type": "string" },
+    { "key": "blogSlug", "value": "learning-to-sit-with-your-emotions", "type": "string" }
   ],
   "item": [
 
@@ -721,6 +723,192 @@
             "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
             "url": { "raw": "{{baseUrl}}/api/testimonials/{{testimonialId}}", "host": ["{{baseUrl}}"], "path": ["api", "testimonials", "{{testimonialId}}"] },
             "description": "Admin only. Deletes a testimonial."
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "📝 Blog",
+      "item": [
+        {
+          "name": "Get All Blog Posts (Public)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/blog", "host": ["{{baseUrl}}"], "path": ["api", "blog"] },
+            "description": "Public. All published blog posts, newest first. Add ?category=REFLECTION|WELLBEING|PERSONAL_GROWTH to filter (see also Get Blog Posts by Category)."
+          }
+        },
+        {
+          "name": "Get Blog Posts by Category (Public)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/blog?category=WELLBEING",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "blog"],
+              "query": [{ "key": "category", "value": "WELLBEING" }]
+            },
+            "description": "Public. Same as Get All with category query. Change category value as needed."
+          }
+        },
+        {
+          "name": "Get Blog Post by Slug (Public)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/blog/{{blogSlug}}", "host": ["{{baseUrl}}"], "path": ["api", "blog", "{{blogSlug}}"] },
+            "description": "Public. One published post by slug (full body). 404 if draft. Uses collection variable blogSlug (set by Create requests)."
+          }
+        },
+        {
+          "name": "[ADMIN] List All Blog Posts",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/blog", "host": ["{{baseUrl}}"], "path": ["api", "admin", "blog"] },
+            "description": "Admin only. All posts including drafts."
+          }
+        },
+        {
+          "name": "[ADMIN] Get Blog Post by ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/blog/{{blogPostId}}", "host": ["{{baseUrl}}"], "path": ["api", "admin", "blog", "{{blogPostId}}"] },
+            "description": "Admin only. Single post by id (draft or published). Set blogPostId from List or from Create test script."
+          }
+        },
+        {
+          "name": "[ADMIN] Create Blog Post",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.data && res.data.id) {",
+                  "  pm.collectionVariables.set('blogPostId', res.data.id);",
+                  "  if (res.data.slug) {",
+                  "    pm.collectionVariables.set('blogSlug', res.data.slug);",
+                  "  }",
+                  "  console.log('blogPostId / blogSlug saved:', res.data.id, res.data.slug);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/blog", "host": ["{{baseUrl}}"], "path": ["api", "admin", "blog"] },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "title", "value": "Learning to Sit With Your Emotions", "type": "text" },
+                { "key": "slug", "value": "learning-to-sit-with-your-emotions", "type": "text", "description": "Optional" },
+                { "key": "excerpt", "value": "Understanding your emotions without rushing to fix them can lead to deeper clarity and lasting growth.", "type": "text" },
+                { "key": "body", "value": "## Intro\n\nFull article body (markdown or HTML).\n\n- Point one\n- Point two", "type": "text" },
+                { "key": "category", "value": "WELLBEING", "type": "text" },
+                { "key": "readTimeMinutes", "value": "5", "type": "text" },
+                { "key": "isPublished", "value": "true", "type": "text" },
+                { "key": "coverImageUrl", "value": "", "type": "text" },
+                { "key": "coverImage", "type": "file", "src": "", "description": "Optional cover image" }
+              ]
+            },
+            "description": "Admin only. Multipart. Required: title, excerpt, body, category. Optional slug, readTimeMinutes, isPublished, cover image or coverImageUrl."
+          }
+        },
+        {
+          "name": "[ADMIN] Create Blog Post (Draft)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.data && res.data.id) {",
+                  "  pm.collectionVariables.set('blogPostId', res.data.id);",
+                  "  if (res.data.slug) {",
+                  "    pm.collectionVariables.set('blogSlug', res.data.slug);",
+                  "  }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/blog", "host": ["{{baseUrl}}"], "path": ["api", "admin", "blog"] },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "title", "value": "Why Slowing Down Matters (draft)", "type": "text" },
+                { "key": "slug", "value": "why-slowing-down-matters-draft", "type": "text" },
+                { "key": "excerpt", "value": "In a fast-paced world, creating space to pause can improve clarity.", "type": "text" },
+                { "key": "body", "value": "## Draft\n\nContent not visible on the public blog until published.", "type": "text" },
+                { "key": "category", "value": "PERSONAL_GROWTH", "type": "text" },
+                { "key": "readTimeMinutes", "value": "5", "type": "text" },
+                { "key": "isPublished", "value": "false", "type": "text" },
+                { "key": "coverImageUrl", "value": "", "type": "text" },
+                { "key": "coverImage", "type": "file", "src": "" }
+              ]
+            },
+            "description": "Admin only. isPublished false — visible in admin list only until you publish."
+          }
+        },
+        {
+          "name": "[ADMIN] Update Blog Post",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/blog/{{blogPostId}}", "host": ["{{baseUrl}}"], "path": ["api", "admin", "blog", "{{blogPostId}}"] },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "readTimeMinutes", "value": "7", "type": "text" },
+                { "key": "isPublished", "value": "true", "type": "text" },
+                { "key": "category", "value": "REFLECTION", "type": "text" },
+                { "key": "coverImage", "type": "file", "src": "", "description": "Optional" }
+              ]
+            },
+            "description": "Admin only. Partial PATCH (minimal example). Add title, excerpt, body, slug parts with non-empty values to change them — empty strings error."
+          }
+        },
+        {
+          "name": "[ADMIN] Update Blog Post — Full fields",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/blog/{{blogPostId}}", "host": ["{{baseUrl}}"], "path": ["api", "admin", "blog", "{{blogPostId}}"] },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "title", "value": "Learning to Sit With Your Emotions (updated title)", "type": "text" },
+                { "key": "excerpt", "value": "Updated excerpt — still about sitting with emotions without rushing to fix them.", "type": "text" },
+                { "key": "body", "value": "## Updated\n\nNew content for the article body. Tables, links, etc.", "type": "text" },
+                { "key": "slug", "value": "learning-to-sit-with-your-emotions", "type": "text" },
+                { "key": "category", "value": "WELLBEING", "type": "text" },
+                { "key": "readTimeMinutes", "value": "8", "type": "text" },
+                { "key": "isPublished", "value": "true", "type": "text" },
+                { "key": "coverImage", "type": "file", "src": "" }
+              ]
+            },
+            "description": "Admin only. Full PATCH example with title, excerpt, body, slug."
+          }
+        },
+        {
+          "name": "[ADMIN] Delete Blog Post",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/blog/{{blogPostId}}", "host": ["{{baseUrl}}"], "path": ["api", "admin", "blog", "{{blogPostId}}"] },
+            "description": "Admin only. Permanently deletes the post. Uses blogPostId."
           }
         }
       ]
