@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { Prisma } from '@prisma/client';
 import prisma from '../config/prisma';
+import { buildMeta, parseAdminPagination } from '../lib/pagination';
 import { catchAsync, AppError } from '../middleware/error.middleware';
 import { AuthRequest, ApplicantDetails } from '../types';
 
@@ -253,17 +254,31 @@ export const deleteCamp = catchAsync(async (req: Request, res: Response) => {
 
 // GET /api/camps/:id/participants — View who applied (admin)
 export const getCampParticipants = catchAsync(async (req: Request, res: Response) => {
-  const registrations = await prisma.campRegistration.findMany({
-    where: { campId: req.params.id },
-    include: {
-      user: { select: { id: true, firstName: true, lastName: true, email: true } },
-      tier: { select: { id: true, label: true, price: true, seatsPerUnit: true } },
-      payment: { select: { status: true, amount: true, createdAt: true } },
-    },
-    orderBy: { createdAt: 'desc' },
-  });
+  const { skip, page, limit } = parseAdminPagination(req);
+  const { id: campId } = req.params;
+  const where = { campId };
 
-  res.json({ success: true, message: 'Participants fetched.', data: registrations });
+  const [registrations, total] = await Promise.all([
+    prisma.campRegistration.findMany({
+      where,
+      include: {
+        user: { select: { id: true, firstName: true, lastName: true, email: true } },
+        tier: { select: { id: true, label: true, price: true, seatsPerUnit: true } },
+        payment: { select: { status: true, amount: true, createdAt: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take: limit,
+    }),
+    prisma.campRegistration.count({ where }),
+  ]);
+
+  res.json({
+    success: true,
+    message: 'Participants fetched.',
+    data: registrations,
+    meta: buildMeta(total, page, limit),
+  });
 });
 
 // ─────────────────────────────────────────────

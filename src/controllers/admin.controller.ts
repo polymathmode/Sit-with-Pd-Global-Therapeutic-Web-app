@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import prisma from '../config/prisma';
 import { fetchCalEventTypesList } from '../lib/cal';
+import { buildMeta, parseAdminPagination } from '../lib/pagination';
 import { catchAsync, AppError } from '../middleware/error.middleware';
 
 // ── Dashboard Stats ───────────────────────────────────────────────────────────
@@ -49,13 +50,12 @@ export const getDashboardStats = catchAsync(async (_req: Request, res: Response)
 // ── All Users ─────────────────────────────────────────────────────────────────
 // GET /api/admin/users
 export const getAllUsers = catchAsync(async (req: Request, res: Response) => {
-  const page = parseInt(req.query.page as string) || 1;
-  const limit = parseInt(req.query.limit as string) || 20;
-  const skip = (page - 1) * limit;
+  const { skip, page, limit } = parseAdminPagination(req);
+  const where = { role: 'USER' as const };
 
   const [users, total] = await Promise.all([
     prisma.user.findMany({
-      where: { role: 'USER' },
+      where,
       select: {
         id: true,
         firstName: true,
@@ -71,13 +71,14 @@ export const getAllUsers = catchAsync(async (req: Request, res: Response) => {
       skip,
       take: limit,
     }),
-    prisma.user.count({ where: { role: 'USER' } }),
+    prisma.user.count({ where }),
   ]);
 
   res.json({
     success: true,
     message: 'Users fetched.',
-    data: { users, total, page, pages: Math.ceil(total / limit) },
+    data: users,
+    meta: buildMeta(total, page, limit),
   });
 });
 
@@ -116,8 +117,16 @@ export const getCalEventTypes = catchAsync(async (req: Request, res: Response) =
       : undefined;
 
   try {
-    const data = await fetchCalEventTypesList({ username });
-    res.json({ success: true, message: 'Cal.com event types fetched.', data });
+    const all = await fetchCalEventTypesList({ username });
+    const { skip, page, limit } = parseAdminPagination(req);
+    const total = all.length;
+    const data = all.slice(skip, skip + limit);
+    res.json({
+      success: true,
+      message: 'Cal.com event types fetched.',
+      data,
+      meta: buildMeta(total, page, limit),
+    });
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'Cal.com request failed';
     throw new AppError(msg, 502);

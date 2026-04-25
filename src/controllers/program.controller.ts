@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { ModuleType, ProgramCategory, Prisma } from '@prisma/client';
 import prisma from '../config/prisma';
+import { buildMeta, parseAdminPagination } from '../lib/pagination';
 import { catchAsync, AppError } from '../middleware/error.middleware';
 import { AuthRequest } from '../types';
 
@@ -180,20 +181,32 @@ export const getProgramById = catchAsync(async (req: Request, res: Response) => 
  * Admin: returns all programs (published and unpublished) for the Programs table.
  * The table columns are: Program Name, Type, Enrolled, Price, Status, Actions.
  */
-export const adminGetAllPrograms = catchAsync(async (_req: AuthRequest, res: Response) => {
-  const programs = await prisma.program.findMany({
-    include: {
-      _count: {
-        select: {
-          purchases: true, // "Enrolled" column
-          weeks: true,
+export const adminGetAllPrograms = catchAsync(async (req: AuthRequest, res: Response) => {
+  const { skip, page, limit } = parseAdminPagination(req);
+
+  const [programs, total] = await Promise.all([
+    prisma.program.findMany({
+      include: {
+        _count: {
+          select: {
+            purchases: true, // "Enrolled" column
+            weeks: true,
+          },
         },
       },
-    },
-    orderBy: { createdAt: 'desc' },
-  });
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take: limit,
+    }),
+    prisma.program.count(),
+  ]);
 
-  res.json({ success: true, message: 'All programs retrieved.', data: programs });
+  res.json({
+    success: true,
+    message: 'All programs retrieved.',
+    data: programs,
+    meta: buildMeta(total, page, limit),
+  });
 });
 
 /**

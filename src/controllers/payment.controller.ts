@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import crypto from 'crypto';
 import prisma from '../config/prisma';
+import { buildMeta, parseAdminPagination } from '../lib/pagination';
 import { catchAsync, AppError } from '../middleware/error.middleware';
 import { AuthRequest, PaystackEvent } from '../types';
 import {
@@ -230,13 +231,25 @@ export const verifyPayment = catchAsync(async (req: Request, res: Response) => {
 
 // ── Admin: All Payments ───────────────────────────────────────────────────────
 // GET /api/admin/payments
-export const getAllPayments = catchAsync(async (_req: Request, res: Response) => {
-  const payments = await prisma.payment.findMany({
-    include: {
-      user: { select: { firstName: true, lastName: true, email: true } },
-    },
-    orderBy: { createdAt: 'desc' },
-  });
+export const getAllPayments = catchAsync(async (req: Request, res: Response) => {
+  const { skip, page, limit } = parseAdminPagination(req);
 
-  res.json({ success: true, message: 'Payments fetched.', data: payments });
+  const [payments, total] = await Promise.all([
+    prisma.payment.findMany({
+      include: {
+        user: { select: { firstName: true, lastName: true, email: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take: limit,
+    }),
+    prisma.payment.count(),
+  ]);
+
+  res.json({
+    success: true,
+    message: 'Payments fetched.',
+    data: payments,
+    meta: buildMeta(total, page, limit),
+  });
 });

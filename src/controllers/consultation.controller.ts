@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { Prisma } from '@prisma/client';
 import prisma from '../config/prisma';
+import { buildMeta, parseAdminPagination } from '../lib/pagination';
 import { catchAsync, AppError } from '../middleware/error.middleware';
 import { AuthRequest } from '../types';
 
@@ -111,17 +112,29 @@ export const getMyConsultations = catchAsync(async (req: AuthRequest, res: Respo
 // ─────────────────────────────────────────────
 
 // GET /api/admin/consultations — View all bookings
-export const getAllConsultations = catchAsync(async (_req: Request, res: Response) => {
-  const consultations = await prisma.consultation.findMany({
-    include: {
-      user: { select: { id: true, firstName: true, lastName: true, email: true } },
-      service: true,
-      payment: { select: { status: true, amount: true } },
-    },
-    orderBy: { createdAt: 'desc' },
-  });
+export const getAllConsultations = catchAsync(async (req: Request, res: Response) => {
+  const { skip, page, limit } = parseAdminPagination(req);
 
-  res.json({ success: true, message: 'All consultations fetched.', data: consultations });
+  const [consultations, total] = await Promise.all([
+    prisma.consultation.findMany({
+      include: {
+        user: { select: { id: true, firstName: true, lastName: true, email: true } },
+        service: true,
+        payment: { select: { status: true, amount: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take: limit,
+    }),
+    prisma.consultation.count(),
+  ]);
+
+  res.json({
+    success: true,
+    message: 'All consultations fetched.',
+    data: consultations,
+    meta: buildMeta(total, page, limit),
+  });
 });
 
 // PATCH /api/admin/consultations/:id — Update status / confirm date

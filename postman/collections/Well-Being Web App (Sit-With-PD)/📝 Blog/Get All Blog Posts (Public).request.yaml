@@ -1,9 +1,10 @@
 $kind: http-request
 description: >-
-  Public. Returns all **published** blog posts, newest first. Optional query
-  `?category=` — one of `REFLECTION`, `WELLBEING`, or `PERSONAL_GROWTH` (e.g.
-  `{{baseUrl}}/api/blog?category=WELLBEING`). Omit the query to list all
-  categories.
+  Public. **Published** posts only, newest first. Query params (all optional):
+  `category` (REFLECTION | WELLBEING | PERSONAL_GROWTH), `search` or `q`
+  (case-insensitive on title/excerpt), `page` and `limit` (if either is set,
+  response includes `meta`: total, page, limit, totalPages; omit both for full
+  list, no meta; limit max 100).
 url: "{{baseUrl}}/api/blog"
 method: GET
 auth:

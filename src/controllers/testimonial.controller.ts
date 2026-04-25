@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../config/prisma';
+import { buildMeta, parseAdminPagination } from '../lib/pagination';
 import { catchAsync, AppError } from '../middleware/error.middleware';
 import { AuthRequest } from '../types';
 
@@ -18,18 +19,31 @@ export const getTestimonials = catchAsync(async (req: Request, res: Response) =>
   res.json({ success: true, message: 'Testimonials fetched.', data: testimonials });
 });
 
-// GET /api/testimonials/admin — admin listing (all, including unpublished)
+// GET /api/testimonials/admin/all — admin listing (all, including unpublished)
 export const getTestimonialsAdmin = catchAsync(async (req: Request, res: Response) => {
   const { campId } = req.query;
+  const { skip, page, limit } = parseAdminPagination(req);
 
-  const testimonials = await prisma.testimonial.findMany({
-    where: {
-      ...(typeof campId === 'string' && campId.trim() !== '' && { campId }),
-    },
-    orderBy: [{ order: 'asc' }, { createdAt: 'desc' }],
+  const where = {
+    ...(typeof campId === 'string' && campId.trim() !== '' && { campId }),
+  };
+
+  const [testimonials, total] = await Promise.all([
+    prisma.testimonial.findMany({
+      where,
+      orderBy: [{ order: 'asc' }, { createdAt: 'desc' }],
+      skip,
+      take: limit,
+    }),
+    prisma.testimonial.count({ where }),
+  ]);
+
+  res.json({
+    success: true,
+    message: 'Testimonials fetched.',
+    data: testimonials,
+    meta: buildMeta(total, page, limit),
   });
-
-  res.json({ success: true, message: 'Testimonials fetched.', data: testimonials });
 });
 
 // GET /api/testimonials/:id

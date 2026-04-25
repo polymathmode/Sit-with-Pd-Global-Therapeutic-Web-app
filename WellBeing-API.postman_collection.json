@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Well-Being Platform API",
-    "description": "Complete API collection for the Well-Being Web Platform. \n\n**Setup:**\n1. Set the `baseUrl` variable to your server (default: http://localhost:5000)\n2. Run **Register** or **Login** first — the token auto-saves to `authToken`\n3. All protected routes automatically use the saved token via collection-level auth\n4. **Blog:** **Create** / **Create (Draft)** test scripts save `blogPostId` and `blogSlug`. Admin update/delete and **Get by ID (admin)** use `blogPostId`. Public **Get by Slug** uses `blogSlug`.\n\n**Seeded Admin:**\n- Email: admin@wellbeing.com\n- Password: Admin@1234",
+    "description": "Complete API collection for the Well-Being Web Platform. \n\n**Setup:**\n1. Set the `baseUrl` variable to your server (default: http://localhost:5000)\n2. Run **Register** or **Login** first — the token auto-saves to `authToken`\n3. All protected routes automatically use the saved token via collection-level auth\n4. **Blog:** **Create** / **Create (Draft)** test scripts save `blogPostId` and `blogSlug`. Admin update/delete and **Get by ID (admin)** use `blogPostId`. Public **Get by Slug** uses `blogSlug`.\n5. **Admin list GETs** (users, programs, blog, payments, consultations, testimonials admin, camp participants, Cal event types): use `?page=1&limit=20` (limit max 100). Response shape: `{ data: [...], meta: { total, page, limit, totalPages } }`.\n\n**Seeded Admin:**\n- Email: admin@wellbeing.com\n- Password: Admin@1234",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -228,8 +228,16 @@
           "request": {
             "method": "GET",
             "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
-            "url": { "raw": "{{baseUrl}}/api/programs/admin/all", "host": ["{{baseUrl}}"], "path": ["api", "programs", "admin", "all"] },
-            "description": "Admin only. Returns all programs including drafts, with lesson and purchase counts."
+            "url": {
+              "raw": "{{baseUrl}}/api/programs/admin/all?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "programs", "admin", "all"],
+              "query": [
+                { "key": "page", "value": "1", "description": "default 1" },
+                { "key": "limit", "value": "20", "description": "default 20, max 100" }
+              ]
+            },
+            "description": "Admin only. Paginated. Programs (published and unpublished) with week/purchase _counts. Response: { data, meta }."
           }
         },
         {
@@ -516,8 +524,16 @@
           "request": {
             "method": "GET",
             "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
-            "url": { "raw": "{{baseUrl}}/api/camps/{{campId}}/participants", "host": ["{{baseUrl}}"], "path": ["api", "camps", "{{campId}}", "participants"] },
-            "description": "Admin only. Lists applicants with tier, payment status, participantCount, and applicantDetails."
+            "url": {
+              "raw": "{{baseUrl}}/api/camps/{{campId}}/participants?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "camps", "{{campId}}", "participants"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            },
+            "description": "Admin only. Paginated list for this camp. Response: { data, meta }."
           }
         },
         {
@@ -660,8 +676,17 @@
           "request": {
             "method": "GET",
             "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
-            "url": { "raw": "{{baseUrl}}/api/testimonials/admin/all", "host": ["{{baseUrl}}"], "path": ["api", "testimonials", "admin", "all"] },
-            "description": "Admin only. All testimonials including unpublished. Optional ?campId filter."
+            "url": {
+              "raw": "{{baseUrl}}/api/testimonials/admin/all?campId=&page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "testimonials", "admin", "all"],
+              "query": [
+                { "key": "campId", "value": "", "description": "optional — filter by camp" },
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            },
+            "description": "Admin only. Paginated. Optional campId. Response: { data, meta }."
           }
         },
         {
@@ -736,8 +761,19 @@
           "request": {
             "auth": { "type": "noauth" },
             "method": "GET",
-            "url": { "raw": "{{baseUrl}}/api/blog", "host": ["{{baseUrl}}"], "path": ["api", "blog"] },
-            "description": "Public. All published blog posts, newest first. Add ?category=REFLECTION|WELLBEING|PERSONAL_GROWTH to filter (see also Get Blog Posts by Category)."
+            "url": {
+              "raw": "{{baseUrl}}/api/blog?search=&category=&page=&limit=",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "blog"],
+              "query": [
+                { "key": "search", "value": "", "description": "optional — case-insensitive match on title or excerpt" },
+                { "key": "q", "value": "", "description": "alias for search" },
+                { "key": "category", "value": "", "description": "REFLECTION | WELLBEING | PERSONAL_GROWTH" },
+                { "key": "page", "value": "", "description": "use with limit — if either is set, response includes meta { total, page, limit, totalPages }" },
+                { "key": "limit", "value": "", "description": "max 100; default 20 when only page is set" }
+              ]
+            },
+            "description": "Public. Published posts only, newest first. Optional filters: category, search (or q). Omit page & limit to return the full list (no meta). With page or limit, response includes meta pagination."
           }
         },
         {
@@ -768,8 +804,20 @@
           "request": {
             "method": "GET",
             "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
-            "url": { "raw": "{{baseUrl}}/api/admin/blog", "host": ["{{baseUrl}}"], "path": ["api", "admin", "blog"] },
-            "description": "Admin only. All posts including drafts."
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/blog?status=&category=&search=&q=&page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "blog"],
+              "query": [
+                { "key": "status", "value": "", "description": "all (default) | draft | published" },
+                { "key": "category", "value": "", "description": "optional — REFLECTION | WELLBEING | PERSONAL_GROWTH" },
+                { "key": "search", "value": "", "description": "optional — q works too; title, excerpt, slug" },
+                { "key": "q", "value": "", "description": "alias for search" },
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20", "description": "max 100" }
+              ]
+            },
+            "description": "Admin only. Always paginated (default page=1, limit=20). Optional filters: status, category, search or q. Response: { data, meta }."
           }
         },
         {
@@ -980,8 +1028,16 @@
           "request": {
             "method": "GET",
             "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
-            "url": { "raw": "{{baseUrl}}/api/consultations", "host": ["{{baseUrl}}"], "path": ["api", "consultations"] },
-            "description": "Admin only. Returns all consultation bookings across all users."
+            "url": {
+              "raw": "{{baseUrl}}/api/consultations?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "consultations"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            },
+            "description": "Admin only. Paginated. Response: { data, meta }."
           }
         },
         {
@@ -1131,8 +1187,16 @@
           "request": {
             "method": "GET",
             "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
-            "url": { "raw": "{{baseUrl}}/api/payments", "host": ["{{baseUrl}}"], "path": ["api", "payments"] },
-            "description": "Admin only. Returns all payment records with user details."
+            "url": {
+              "raw": "{{baseUrl}}/api/payments?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            },
+            "description": "Admin only. Paginated. Response: { data, meta }."
           }
         },
         {
@@ -1204,7 +1268,7 @@
                 { "key": "limit", "value": "20" }
               ]
             },
-            "description": "Admin only. Paginated list of all registered users with purchase/booking counts."
+            "description": "Admin only. `data` is the users array (not `data.users`). Includes `meta`: total, page, limit, totalPages."
           }
         },
         {
@@ -1222,7 +1286,7 @@
             "method": "GET",
             "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
             "url": {
-              "raw": "{{baseUrl}}/api/admin/cal/event-types",
+              "raw": "{{baseUrl}}/api/admin/cal/event-types?page=1&limit=20",
               "host": ["{{baseUrl}}"],
               "path": ["api", "admin", "cal", "event-types"],
               "query": [
@@ -1231,10 +1295,12 @@
                   "value": "",
                   "description": "Optional. Cal.com username to scope event types (see Cal API).",
                   "disabled": true
-                }
+                },
+                { "key": "page", "value": "1", "description": "slices the fetched Cal.com list" },
+                { "key": "limit", "value": "20" }
               ]
             },
-            "description": "Admin only. Proxies Cal.com GET /v2/event-types using CAL_API_KEY. Returns calEventTypeId, title, slug, lengthInMinutes, calBookingUrl, username per event. Enable the username query param if needed."
+            "description": "Admin only. Fetches from Cal.com then paginates in memory. Response: { data, meta }."
           }
         }
       ]

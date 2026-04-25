@@ -1,6 +1,11 @@
 import { Request, Response } from 'express';
 import { BlogCategory, Prisma } from '@prisma/client';
 import prisma from '../config/prisma';
+import {
+  buildMeta,
+  parseAdminPagination,
+  parseOptionalListPagination,
+} from '../lib/pagination';
 import { catchAsync, AppError } from '../middleware/error.middleware';
 import { AuthRequest } from '../types';
 
@@ -39,30 +44,101 @@ function normalizeSlug(input: string): string {
   return s || 'post';
 }
 
+function getSearchString(req: Request): string {
+  const raw = req.query.search ?? req.query.q;
+  if (raw === undefined || raw === null) return '';
+  return String(raw).trim();
+}
+
+function searchWhereForPublic(term: string): Prisma.BlogPostWhereInput {
+  return {
+    OR: [
+      { title: { contains: term, mode: 'insensitive' } },
+      { excerpt: { contains: term, mode: 'insensitive' } },
+    ],
+  };
+}
+
+function searchWhereForAdmin(term: string): Prisma.BlogPostWhereInput {
+  return {
+    OR: [
+      { title: { contains: term, mode: 'insensitive' } },
+      { excerpt: { contains: term, mode: 'insensitive' } },
+      { slug: { contains: term, mode: 'insensitive' } },
+    ],
+  };
+}
+
+/**
+ * `status` (admin list): all | draft | published
+ */
+function parseListStatus(raw: unknown): 'all' | 'draft' | 'published' {
+  if (raw === undefined || raw === null || String(raw).trim() === '') return 'all';
+  const s = String(raw).trim().toLowerCase();
+  if (s === 'all') return 'all';
+  if (s === 'draft' || s === 'drafts') return 'draft';
+  if (s === 'published') return 'published';
+  throw new AppError('status must be all, draft, or published.', 400);
+}
+
 // ── Public ───────────────────────────────────────────────────────────────────
 
 export const getPublishedBlogPosts = catchAsync(async (req: Request, res: Response) => {
   const { category } = req.query;
+  const searchTerm = getSearchString(req);
 
-  const where: Prisma.BlogPostWhereInput = { isPublished: true };
+  const parts: Prisma.BlogPostWhereInput[] = [{ isPublished: true }];
+
   if (category !== undefined && category !== null && String(category).trim() !== '') {
-    where.category = parseBlogCategory(category, true)!;
+    parts.push({ category: parseBlogCategory(category, true)! });
+  }
+  if (searchTerm) {
+    parts.push(searchWhereForPublic(searchTerm));
+  }
+
+  const where: Prisma.BlogPostWhereInput = parts.length > 1 ? { AND: parts } : parts[0]!;
+
+  const pag = parseOptionalListPagination(req);
+  const orderBy: Prisma.BlogPostOrderByWithRelationInput[] = [
+    { publishedAt: 'desc' },
+    { createdAt: 'desc' },
+  ];
+  const select = {
+    id: true,
+    slug: true,
+    title: true,
+    excerpt: true,
+    readTimeMinutes: true,
+    category: true,
+    coverImageUrl: true,
+    publishedAt: true,
+    createdAt: true,
+  } as const;
+
+  if (pag.mode === 'page') {
+    const { skip, page, limit } = pag;
+    const [total, posts] = await Promise.all([
+      prisma.blogPost.count({ where }),
+      prisma.blogPost.findMany({
+        where,
+        orderBy,
+        skip,
+        take: limit,
+        select,
+      }),
+    ]);
+    return res.json({
+      success: true,
+      message: 'Blog posts retrieved.',
+      data: posts,
+      meta: buildMeta(total, page, limit),
+    });
   }
 
   const posts = await prisma.blogPost.findMany({
     where,
-    orderBy: [{ publishedAt: 'desc' }, { createdAt: 'desc' }],
-    select: {
-      id: true,
-      slug: true,
-      title: true,
-      excerpt: true,
-      readTimeMinutes: true,
-      category: true,
-      coverImageUrl: true,
-      publishedAt: true,
-      createdAt: true,
-    },
+    orderBy,
+    select,
   });
 
   res.json({ success: true, message: 'Blog posts retrieved.', data: posts });
@@ -82,12 +158,48 @@ export const getBlogPostBySlug = catchAsync(async (req: Request, res: Response) 
 
 // ── Admin ────────────────────────────────────────────────────────────────────
 
-export const adminListBlogPosts = catchAsync(async (_req: AuthRequest, res: Response) => {
-  const posts = await prisma.blogPost.findMany({
-    orderBy: { updatedAt: 'desc' },
-  });
+export const adminListBlogPosts = catchAsync(async (req: AuthRequest, res: Response) => {
+  const { category } = req.query;
+  const searchTerm = getSearchString(req);
+  const listStatus = parseListStatus(req.query.status);
 
-  res.json({ success: true, message: 'Blog posts retrieved.', data: posts });
+  const parts: Prisma.BlogPostWhereInput[] = [];
+
+  if (listStatus === 'draft') {
+    parts.push({ isPublished: false });
+  } else if (listStatus === 'published') {
+    parts.push({ isPublished: true });
+  }
+
+  if (category !== undefined && category !== null && String(category).trim() !== '') {
+    parts.push({ category: parseBlogCategory(category, true)! });
+  }
+  if (searchTerm) {
+    parts.push(searchWhereForAdmin(searchTerm));
+  }
+
+  const where: Prisma.BlogPostWhereInput =
+    parts.length === 0 ? {} : parts.length === 1 ? parts[0]! : { AND: parts };
+
+  const { skip, page, limit } = parseAdminPagination(req);
+  const orderBy = { updatedAt: 'desc' as const };
+
+  const [total, posts] = await Promise.all([
+    prisma.blogPost.count({ where }),
+    prisma.blogPost.findMany({
+      where,
+      orderBy,
+      skip,
+      take: limit,
+    }),
+  ]);
+
+  res.json({
+    success: true,
+    message: 'Blog posts retrieved.',
+    data: posts,
+    meta: buildMeta(total, page, limit),
+  });
 });
 
 export const getBlogPostByIdAdmin = catchAsync(async (req: AuthRequest, res: Response) => {

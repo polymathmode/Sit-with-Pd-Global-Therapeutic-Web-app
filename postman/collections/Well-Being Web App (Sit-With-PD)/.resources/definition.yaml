@@ -19,6 +19,9 @@ description: >-
   by Slug** uses `blogSlug`. Two public list requests cover unfiltered and
   `?category=` filters.
 
+  5. **Admin list GETs** use `?page=&limit=` (see each request). Typical
+  response: `data` array + `meta` { total, page, limit, totalPages }.
+
 
   **Seeded Admin:**
 

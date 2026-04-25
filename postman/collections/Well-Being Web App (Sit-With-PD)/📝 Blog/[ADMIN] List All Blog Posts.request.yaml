@@ -1,8 +1,9 @@
 $kind: http-request
 description: >-
-  Admin only. Returns every post including **drafts** (not public). Use the
-  collection’s bearer token after **Login** as a seeded or promoted admin
-  (e.g. admin@wellbeing.com).
+  Admin only. Always paginated (`page`, `limit`; defaults 1 and 20, limit max
+  100). Response includes `meta` { total, page, limit, totalPages }. Optional
+  filters: `status` (all | draft | published), `category`, `search` or `q`.
+  Bearer token after **Login** (e.g. admin@wellbeing.com).
 url: "{{baseUrl}}/api/admin/blog"
 method: GET
 auth:
