@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import cookieParser from 'cookie-parser';
+import morgan from 'morgan';
 import 'dotenv/config';
 
 import authRoutes from './routes/auth.routes';
@@ -29,6 +30,14 @@ app.use(cors({
   credentials: true,
 }));
 app.use(cookieParser());
+
+// ── HTTP request logging (Render / local stdout) ────────────────────────────
+const morganFormat = process.env.NODE_ENV === 'production' ? 'combined' : 'dev';
+app.use(
+  morgan(morganFormat, {
+    skip: (req) => req.url === '/health' || req.url === '/favicon.ico',
+  })
+);
 
 // ── Rate Limiting ─────────────────────────────────────────────────────────────
 const limiter = rateLimit({
