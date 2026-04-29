@@ -145,7 +145,55 @@
             "method": "GET",
             "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
             "url": { "raw": "{{baseUrl}}/api/auth/me", "host": ["{{baseUrl}}"], "path": ["api", "auth", "me"] },
-            "description": "Returns the currently authenticated user's profile (includes isEmailVerified)."
+            "description": "Returns the authenticated user: core fields plus Settings — phone, timezone, notifyEmail, notifyProgramReminders, notifyPush, hasPassword — and createdAt.\nOAuth-only accounts typically have hasPassword false."
+          }
+        },
+        {
+          "name": "[USER] Update Profile",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/auth/profile", "host": ["{{baseUrl}}"], "path": ["api", "auth", "profile"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Tinu\",\n  \"lastName\": \"Boroni\",\n  \"phone\": \"+2348000000000\",\n  \"timezone\": \"Africa/Lagos\"\n}"
+            },
+            "description": "Partial update (send at least one field). Allowed: firstName, lastName, email, phone (string or null to clear), timezone (IANA e.g. Africa/Lagos, or null/\"\" to clear). Changing email sets isEmailVerified false and triggers a verification email; server sets a refreshed auth cookie (browser clients)."
+          }
+        },
+        {
+          "name": "[USER] Update Password",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/auth/password", "host": ["{{baseUrl}}"], "path": ["api", "auth", "password"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"Admin@1234\",\n  \"newPassword\": \"NewPassword123\"\n}"
+            },
+            "description": "Requires an existing hashed password on the account. Google-only accounts (no password): use Forgot password flow or omit this call. Incorrect currentPassword returns 401."
+          }
+        },
+        {
+          "name": "[USER] Update Notification Preferences",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/auth/notifications", "host": ["{{baseUrl}}"], "path": ["api", "auth", "notifications"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"notifyEmail\": true,\n  \"notifyProgramReminders\": false,\n  \"notifyPush\": true\n}"
+            },
+            "description": "Partial PATCH: include at least one of notifyEmail, notifyProgramReminders, notifyPush (booleans). Defaults on new users match the product: email=true, reminders=false, push=true."
           }
         },
         {
@@ -159,7 +207,7 @@
               "path": ["api", "auth", "verify-email"],
               "query": [{ "key": "token", "value": "{{verifyToken}}" }]
             },
-            "description": "Confirm email using the token from the verification email (48h expiry). Set `verifyToken` from the email link query string. Response `data` is the full public user (same fields as GET /me: id, firstName, lastName, email, role, isEmailVerified, createdAt)."
+            "description": "Confirm email using the token from the verification email (48h expiry). Set `verifyToken` from the email link query string. Response `data`: id, firstName, lastName, email, role, isEmailVerified, createdAt — use GET /me for Settings fields."
           }
         },
         {
