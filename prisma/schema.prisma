@@ -68,6 +68,11 @@ model User {
   emailVerificationExpiry DateTime?
   passwordResetToken      String?
   passwordResetExpiry     DateTime?
+  phone                   String?
+  timezone                String?
+  notifyEmail             Boolean   @default(true)
+  notifyProgramReminders  Boolean   @default(false)
+  notifyPush              Boolean   @default(true)
   createdAt               DateTime  @default(now())
   updatedAt               DateTime  @updatedAt
 

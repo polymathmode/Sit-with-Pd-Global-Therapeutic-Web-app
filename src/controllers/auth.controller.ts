@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { Prisma } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
@@ -7,6 +8,7 @@ import { catchAsync, AppError } from '../middleware/error.middleware';
 import { sendEmailVerificationEmail, sendPasswordResetEmail } from '../utils/email.service';
 import { getGoogleClientIds, verifyGoogleIdToken } from '../utils/googleAuth';
 import { ACCESS_TOKEN_COOKIE, authCookieOptions, clearAuthCookie } from '../lib/authCookie';
+import { isValidIanaTimezone } from '../lib/timezone';
 import { AuthRequest } from '../types';
 
 // ── Generate JWT ──────────────────────────────────────────────────────────────
@@ -27,6 +29,17 @@ const publicUserFields = {
   email: true,
   role: true,
   isEmailVerified: true,
+} as const;
+
+/** Fields returned by GET/PATCH settings for the authenticated user (no password hash). */
+const meResponseSelect = {
+  ...publicUserFields,
+  phone: true,
+  timezone: true,
+  notifyEmail: true,
+  notifyProgramReminders: true,
+  notifyPush: true,
+  createdAt: true,
 } as const;
 
 // ── Register ──────────────────────────────────────────────────────────────────
@@ -279,17 +292,238 @@ export const logout = catchAsync(async (_req: Request, res: Response) => {
   res.json({ success: true, message: 'Logged out.' });
 });
 
-// ── Get Current User (me) ─────────────────────────────────────────────────────
+function toMeResponse<T extends { password: string | null }>(
+  user: T
+): Omit<T, 'password'> & { hasPassword: boolean } {
+  const { password: pw, ...rest } = user;
+  return { ...rest, hasPassword: !!pw };
+}
+
+// ── Get Current User (me) — includes Settings fields + hasPassword ────────────
 export const getMe = catchAsync(async (req: AuthRequest, res: Response) => {
   const userId = req.user!.id;
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
+    select: { ...meResponseSelect, password: true },
+  });
+
+  if (!user) throw new AppError('User not found.', 404);
+
+  res.json({ success: true, message: 'User retrieved.', data: toMeResponse(user) });
+});
+
+/** PATCH profile: firstName, lastName, email, phone, timezone */
+export const updateProfile = catchAsync(async (req: AuthRequest, res: Response) => {
+  const userId = req.user!.id;
+  const { firstName, lastName, email, phone, timezone } = req.body as Record<string, unknown>;
+
+  const hasPayload =
+    firstName !== undefined ||
+    lastName !== undefined ||
+    email !== undefined ||
+    phone !== undefined ||
+    timezone !== undefined;
+
+  if (!hasPayload) {
+    throw new AppError('Provide at least one field to update.', 400);
+  }
+
+  const current = await prisma.user.findUnique({
+    where: { id: userId },
     select: {
-      ...publicUserFields,
-      createdAt: true,
+      ...meResponseSelect,
+      password: true,
+      email: true,
+      firstName: true,
+      lastName: true,
+    },
+  });
+  if (!current) throw new AppError('User not found.', 404);
+
+  const data: Prisma.UserUpdateInput = {};
+  let emailChanged = false;
+
+  if (firstName !== undefined) {
+    if (typeof firstName !== 'string' || !firstName.trim()) throw new AppError('First name cannot be empty.', 400);
+    data.firstName = firstName.trim();
+  }
+  if (lastName !== undefined) {
+    if (typeof lastName !== 'string' || !lastName.trim()) throw new AppError('Last name cannot be empty.', 400);
+    data.lastName = lastName.trim();
+  }
+
+  if (phone !== undefined) {
+    if (phone === null || phone === '') data.phone = null;
+    else if (typeof phone === 'string') data.phone = phone.trim() || null;
+    else throw new AppError('Invalid phone value.', 400);
+  }
+
+  if (timezone !== undefined) {
+    if (timezone === null || timezone === '') data.timezone = null;
+    else if (typeof timezone === 'string') {
+      if (!isValidIanaTimezone(timezone)) throw new AppError('Invalid timezone.', 400);
+      data.timezone = timezone;
+    } else throw new AppError('Invalid timezone value.', 400);
+  }
+
+  if (email !== undefined) {
+    if (typeof email !== 'string' || !email.trim()) throw new AppError('Email cannot be empty.', 400);
+    const newEmail = email.trim().toLowerCase();
+    if (newEmail !== current.email) {
+      emailChanged = true;
+      const taken = await prisma.user.findUnique({ where: { email: newEmail } });
+      if (taken) throw new AppError('Email already in use.', 409);
+      const verificationToken = crypto.randomBytes(32).toString('hex');
+      const emailVerificationExpiry = new Date(Date.now() + EMAIL_VERIFICATION_TTL_MS);
+      data.email = newEmail;
+      data.isEmailVerified = false;
+      data.emailVerificationToken = verificationToken;
+      data.emailVerificationExpiry = emailVerificationExpiry;
+    }
+  }
+
+  if (Object.keys(data).length === 0) {
+    const unchanged = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { ...meResponseSelect, password: true },
+    });
+    if (!unchanged) throw new AppError('User not found.', 404);
+    return res.json({
+      success: true,
+      message: 'No changes.',
+      data: toMeResponse(unchanged),
+    });
+  }
+
+  await prisma.user.update({
+    where: { id: userId },
+    data,
+  });
+
+  const shouldSendVerification = emailChanged && data.emailVerificationToken;
+  if (
+    typeof email === 'string' &&
+    shouldSendVerification &&
+    typeof data.emailVerificationToken === 'string'
+  ) {
+    const fn =
+      typeof firstName === 'string' && firstName.trim()
+        ? firstName.trim()
+        : typeof data.firstName === 'string'
+          ? String(data.firstName)
+          : current.firstName;
+    await sendEmailVerificationEmail(email.trim().toLowerCase(), fn, data.emailVerificationToken);
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { ...meResponseSelect, password: true },
+  });
+  if (!user) throw new AppError('User not found.', 404);
+
+  if (emailChanged) {
+    const token = signToken(user.id, user.email, user.role);
+    res.cookie(ACCESS_TOKEN_COOKIE, token, authCookieOptions());
+  }
+
+  const message =
+    emailChanged &&
+    typeof data.emailVerificationToken === 'string' &&
+    typeof email === 'string'
+      ? 'Profile updated. Please verify your new email address.'
+      : 'Profile updated.';
+
+  res.json({ success: true, message, data: toMeResponse(user) });
+});
+
+/** PATCH password (not for Google-only accounts without a password) */
+export const updatePassword = catchAsync(async (req: AuthRequest, res: Response) => {
+  const userId = req.user!.id;
+  const { currentPassword, newPassword } = req.body as { currentPassword?: string; newPassword?: string };
+
+  if (!currentPassword || !newPassword) {
+    throw new AppError('Current password and new password are required.', 400);
+  }
+
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw new AppError('User not found.', 404);
+
+  if (!user.password) {
+    throw new AppError(
+      'Password sign-in is not set for this account. Sign in with Google, or use Forgot password to add a password.',
+      400
+    );
+  }
+
+  const ok = await bcrypt.compare(currentPassword, user.password);
+  if (!ok) throw new AppError('Current password is incorrect.', 401);
+
+  const hashed = await bcrypt.hash(newPassword, 12);
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      password: hashed,
+      passwordResetToken: null,
+      passwordResetExpiry: null,
     },
   });
 
-  res.json({ success: true, message: 'User retrieved.', data: user });
+  const refreshed = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { ...meResponseSelect, password: true },
+  });
+  if (!refreshed) throw new AppError('User not found.', 404);
+
+  res.json({
+    success: true,
+    message: 'Password updated.',
+    data: toMeResponse(refreshed),
+  });
+});
+
+/** PATCH notification toggles — at least one boolean field required */
+export const updateNotificationPreferences = catchAsync(async (req: AuthRequest, res: Response) => {
+  const userId = req.user!.id;
+  const { notifyEmail, notifyProgramReminders, notifyPush } = req.body as Record<string, unknown>;
+
+  const hasAny =
+    notifyEmail !== undefined ||
+    notifyProgramReminders !== undefined ||
+    notifyPush !== undefined;
+
+  if (!hasAny) {
+    throw new AppError('Provide at least one notification preference.', 400);
+  }
+
+  const data: { notifyEmail?: boolean; notifyProgramReminders?: boolean; notifyPush?: boolean } = {};
+
+  if (notifyEmail !== undefined) {
+    if (typeof notifyEmail !== 'boolean') throw new AppError('notifyEmail must be a boolean.', 400);
+    data.notifyEmail = notifyEmail;
+  }
+  if (notifyProgramReminders !== undefined) {
+    if (typeof notifyProgramReminders !== 'boolean')
+      throw new AppError('notifyProgramReminders must be a boolean.', 400);
+    data.notifyProgramReminders = notifyProgramReminders;
+  }
+  if (notifyPush !== undefined) {
+    if (typeof notifyPush !== 'boolean') throw new AppError('notifyPush must be a boolean.', 400);
+    data.notifyPush = notifyPush;
+  }
+
+  await prisma.user.update({ where: { id: userId }, data });
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { ...meResponseSelect, password: true },
+  });
+  if (!user) throw new AppError('User not found.', 404);
+
+  res.json({
+    success: true,
+    message: 'Notification preferences updated.',
+    data: toMeResponse(user),
+  });
 });
