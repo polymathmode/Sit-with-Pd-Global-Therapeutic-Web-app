@@ -3,6 +3,9 @@ import prisma from '../config/prisma';
 import { fetchCalEventTypesList } from '../lib/cal';
 import { buildMeta, parseAdminPagination } from '../lib/pagination';
 import { catchAsync, AppError } from '../middleware/error.middleware';
+import { Prisma } from '@prisma/client';
+
+const USER_SEARCH_MAX_LEN = 100;
 
 // ── Dashboard Stats ───────────────────────────────────────────────────────────
 // GET /api/admin/stats
@@ -48,10 +51,27 @@ export const getDashboardStats = catchAsync(async (_req: Request, res: Response)
 });
 
 // ── All Users ─────────────────────────────────────────────────────────────────
-// GET /api/admin/users
+// GET /api/admin/users — optional query: search (firstName, lastName, email substring, case-insensitive)
 export const getAllUsers = catchAsync(async (req: Request, res: Response) => {
   const { skip, page, limit } = parseAdminPagination(req);
-  const where = { role: 'USER' as const };
+  const raw = req.query.search;
+  const search =
+    typeof raw === 'string'
+      ? raw.trim().slice(0, USER_SEARCH_MAX_LEN)
+      : '';
+
+  const where: Prisma.UserWhereInput = {
+    role: 'USER',
+    ...(search.length > 0
+      ? {
+          OR: [
+            { firstName: { contains: search, mode: 'insensitive' } },
+            { lastName: { contains: search, mode: 'insensitive' } },
+            { email: { contains: search, mode: 'insensitive' } },
+          ],
+        }
+      : {}),
+  };
 
   const [users, total] = await Promise.all([
     prisma.user.findMany({

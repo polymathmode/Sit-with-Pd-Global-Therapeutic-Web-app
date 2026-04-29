@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Well-Being Platform API",
-    "description": "Complete API collection for the Well-Being Web Platform. \n\n**Setup:**\n1. Set the `baseUrl` variable to your server (default: http://localhost:5000)\n2. Run **Register** or **Login** first — the token auto-saves to `authToken`\n3. All protected routes automatically use the saved token via collection-level auth\n4. **Blog:** **Create** / **Create (Draft)** test scripts save `blogPostId` and `blogSlug`. Admin update/delete and **Get by ID (admin)** use `blogPostId`. Public **Get by Slug** uses `blogSlug`.\n5. **Admin list GETs** (users, programs, blog, payments, consultations, testimonials admin, camp participants, Cal event types): use `?page=1&limit=20` (limit max 100). Response shape: `{ data: [...], meta: { total, page, limit, totalPages } }`.\n\n**Seeded Admin:**\n- Email: admin@wellbeing.com\n- Password: Admin@1234",
+    "description": "Complete API collection for the Well-Being Web Platform. \n\n**Setup:**\n1. Set the `baseUrl` variable to your server (default: http://localhost:5000)\n2. Run **Register** or **Login** first — the token auto-saves to `authToken`\n3. All protected routes automatically use the saved token via collection-level auth\n4. **Blog:** **Create** / **Create (Draft)** test scripts save `blogPostId` and `blogSlug`. Admin update/delete and **Get by ID (admin)** use `blogPostId`. Public **Get by Slug** uses `blogSlug`.\n5. **Admin list GETs** (users, programs, blog, payments, consultations, testimonials admin, camp participants, Cal event types): use `?page=1&limit=20` (limit max 100). **Get All Users** also accepts optional `?search=` (matches substring on first name, last name, email — case insensitive). Response shape: `{ data: [...], meta: { total, page, limit, totalPages } }`.\n\n**Seeded Admin:**\n- Email: admin@wellbeing.com\n- Password: Admin@1234",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -1308,15 +1308,20 @@
             "method": "GET",
             "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
             "url": {
-              "raw": "{{baseUrl}}/api/admin/users?page=1&limit=20",
+              "raw": "{{baseUrl}}/api/admin/users?page=1&limit=20&search=",
               "host": ["{{baseUrl}}"],
               "path": ["api", "admin", "users"],
               "query": [
                 { "key": "page", "value": "1" },
-                { "key": "limit", "value": "20" }
+                { "key": "limit", "value": "20" },
+                {
+                  "key": "search",
+                  "value": "",
+                  "description": "Optional. Matches substring against first name, last name, or email (case-insensitive). Max 100 characters."
+                }
               ]
             },
-            "description": "Admin only. `data` is the users array (not `data.users`). Includes `meta`: total, page, limit, totalPages."
+            "description": "Admin only. Optional `search` filters by firstName, lastName, or email. `data` is the users array (not `data.users`). Includes `meta`: total, page, limit, totalPages."
           }
         },
         {
