@@ -1286,6 +1286,46 @@
             "url": { "raw": "{{baseUrl}}/api/dashboard/programs/{{programId}}", "host": ["{{baseUrl}}"], "path": ["api", "dashboard", "programs", "{{programId}}"] },
             "description": "Returns full lesson content (including video URLs) for a purchased program. Returns 403 if not purchased."
           }
+        },
+        {
+          "name": "[USER] Contact support",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/dashboard/support/contact",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "dashboard", "support", "contact"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subject\": \"Question about my account\",\n  \"message\": \"Hello, I need help with my dashboard. Thanks.\"\n}"
+            },
+            "description": "Emails **admin Settings → supportEmail**. JSON: `message` (required, 10–4000 chars), `subject` optional (max 200). Sets **Reply-To** to the learner email. Respects **emailNotificationsEnabled** (mailer may no-op). Requires same auth + email verification rules as other dashboard writes."
+          }
+        },
+        {
+          "name": "[USER] Message facilitator",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/dashboard/programs/{{programId}}/contact-facilitator",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "dashboard", "programs", "{{programId}}", "contact-facilitator"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subject\": \"Question about this week\",\n  \"message\": \"Hi, could you clarify the assignment for week 3? Thank you.\"\n}"
+            },
+            "description": "Emails the program’s **facilitatorEmail** (set in admin program form). Requires an active **purchase** with successful payment. Same body rules as Contact support. Returns **400** if facilitator email is missing — UI can fall back to Contact support."
+          }
         }
       ]
     },

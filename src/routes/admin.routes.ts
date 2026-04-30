@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { body } from 'express-validator';
 import { getDashboard, getProgramContent } from '../controllers/dashboard.controller';
+import { contactDashboardSupport, contactProgramFacilitator } from '../controllers/dashboardSupport.controller';
 import { getDashboardStats, getAllUsers, getUserById, getCalEventTypes } from '../controllers/admin.controller';
 import {
   getAdminPlatformSettings,
@@ -30,6 +31,36 @@ dashboardRouter.get(
   authenticate,
   enforceVerifiedEmailIfRequired,
   getProgramContent
+);
+
+const dashboardMessageValidators = [
+  body('message')
+    .trim()
+    .isLength({ min: 10, max: 4000 })
+    .withMessage('message must be between 10 and 4000 characters.'),
+  body('subject')
+    .optional({ values: 'falsy' })
+    .trim()
+    .isLength({ max: 200 })
+    .withMessage('subject max 200 characters.'),
+];
+
+dashboardRouter.post(
+  '/support/contact',
+  authenticate,
+  enforceVerifiedEmailIfRequired,
+  dashboardMessageValidators,
+  validate,
+  contactDashboardSupport
+);
+
+dashboardRouter.post(
+  '/programs/:programId/contact-facilitator',
+  authenticate,
+  enforceVerifiedEmailIfRequired,
+  dashboardMessageValidators,
+  validate,
+  contactProgramFacilitator
 );
 
 // ── Admin Routes ──────────────────────────────────────────────────────────────

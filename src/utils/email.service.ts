@@ -171,3 +171,68 @@ export const sendPasswordResetEmail = async (
     `,
   });
 };
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/** Logged-in user → platform support (admin Settings `supportEmail`). */
+export const sendDashboardSupportRequestEmail = async (params: {
+  to: string;
+  userEmail: string;
+  userName: string;
+  subjectLine: string;
+  message: string;
+}) => {
+  const { to, userEmail, userName, subjectLine, message } = params;
+  const safe = escapeHtml(message);
+  await sendMail({
+    from: FROM,
+    to,
+    replyTo: userEmail,
+    subject: subjectLine,
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px;">
+        <p><strong>Support request</strong> from the learner dashboard.</p>
+        <p><strong>Name:</strong> ${escapeHtml(userName)}</p>
+        <p><strong>Email:</strong> ${escapeHtml(userEmail)}</p>
+        <hr style="border:none;border-top:1px solid #eee;margin:16px 0;" />
+        <div style="white-space:pre-wrap;">${safe}</div>
+      </div>
+    `,
+  });
+};
+
+/** Purchased-program participant → facilitator email on Program. */
+export const sendDashboardFacilitatorMessageEmail = async (params: {
+  to: string;
+  userEmail: string;
+  userName: string;
+  programTitle: string;
+  facilitatorName: string | null;
+  subjectLine: string;
+  message: string;
+}) => {
+  const { to, userEmail, userName, programTitle, facilitatorName, subjectLine, message } = params;
+  const safe = escapeHtml(message);
+  const fn = facilitatorName ? escapeHtml(facilitatorName) : 'Facilitator';
+  await sendMail({
+    from: FROM,
+    to,
+    replyTo: userEmail,
+    subject: subjectLine,
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px;">
+        <p>Hello ${fn},</p>
+        <p>A participant in <strong>${escapeHtml(programTitle)}</strong> sent you a message via the learner dashboard.</p>
+        <p><strong>From:</strong> ${escapeHtml(userName)} &lt;${escapeHtml(userEmail)}&gt;</p>
+        <hr style="border:none;border-top:1px solid #eee;margin:16px 0;" />
+        <div style="white-space:pre-wrap;">${safe}</div>
+      </div>
+    `,
+  });
+};
