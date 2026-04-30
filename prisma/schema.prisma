@@ -55,6 +55,31 @@ enum ModuleType {
   OTHER
 }
 
+// Admin dashboard — Platform Settings page (singleton row id `default`)
+enum PlatformCurrency {
+  NGN
+  USD
+  EUR
+  GBP
+}
+
+model PlatformSettings {
+  id                        String           @id @default("default")
+  platformName              String           @default("Sit With PD")
+  supportEmail              String           @default("support@sitwithpd.com")
+  defaultTimezone           String           @default("Africa/Lagos")
+  currency                  PlatformCurrency @default(NGN)
+  maintenanceMode           Boolean          @default(false)
+  allowUserRegistration     Boolean          @default(true)
+  requireEmailVerification  Boolean          @default(true)
+  autoEnrollment            Boolean          @default(false)
+  emailNotificationsEnabled Boolean          @default(true)
+  createdAt                 DateTime         @default(now())
+  updatedAt                 DateTime         @updatedAt
+
+  @@map("platform_settings")
+}
+
 model User {
   id                      String    @id @default(cuid())
   firstName               String

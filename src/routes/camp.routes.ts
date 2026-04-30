@@ -16,6 +16,7 @@ import {
   deleteCampImage,
 } from '../controllers/camp.controller';
 import { authenticate, adminOnly } from '../middleware/auth.middleware';
+import { enforceVerifiedEmailIfRequired } from '../middleware/platformSettings.middleware';
 import { uploadImage } from '../middleware/upload.middleware';
 
 const router = Router();
@@ -27,7 +28,7 @@ router.get('/', getAllCamps);
 router.get('/:id', getCampById);
 
 // ── User ──────────────────────────────────────────────────────────────────────
-router.post('/:id/register', authenticate, registerForCamp);
+router.post('/:id/register', authenticate, enforceVerifiedEmailIfRequired, registerForCamp);
 
 // ── Admin: Camp CRUD ──────────────────────────────────────────────────────────
 router.post('/', authenticate, adminOnly, uploadImage.single('thumbnail'), createCamp);

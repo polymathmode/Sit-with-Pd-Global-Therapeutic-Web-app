@@ -1,6 +1,13 @@
 import { Router } from 'express';
+import { body } from 'express-validator';
 import { getDashboard, getProgramContent } from '../controllers/dashboard.controller';
 import { getDashboardStats, getAllUsers, getUserById, getCalEventTypes } from '../controllers/admin.controller';
+import {
+  getAdminPlatformSettings,
+  patchAdminGeneralSettings,
+  patchAdminFeaturesSettings,
+  patchAdminNotificationsSettings,
+} from '../controllers/adminSettings.controller';
 import {
   adminListBlogPosts,
   getBlogPostByIdAdmin,
@@ -9,18 +16,78 @@ import {
   deleteBlogPost,
 } from '../controllers/blog.controller';
 import { authenticate, adminOnly } from '../middleware/auth.middleware';
+import { enforceVerifiedEmailIfRequired } from '../middleware/platformSettings.middleware';
+import { validate } from '../middleware/validate.middleware';
 import { uploadImage } from '../middleware/upload.middleware';
+import { isValidIanaTimezone } from '../lib/timezone';
 
 // ── User Dashboard ────────────────────────────────────────────────────────────
 export const dashboardRouter = Router();
 
-dashboardRouter.get('/', authenticate, getDashboard);
-dashboardRouter.get('/programs/:programId', authenticate, getProgramContent);
+dashboardRouter.get('/', authenticate, enforceVerifiedEmailIfRequired, getDashboard);
+dashboardRouter.get(
+  '/programs/:programId',
+  authenticate,
+  enforceVerifiedEmailIfRequired,
+  getProgramContent
+);
 
 // ── Admin Routes ──────────────────────────────────────────────────────────────
 export const adminRouter = Router();
 
 adminRouter.get('/stats', authenticate, adminOnly, getDashboardStats);
+adminRouter.get('/settings', authenticate, adminOnly, getAdminPlatformSettings);
+
+adminRouter.patch(
+  '/settings/general',
+  authenticate,
+  adminOnly,
+  [
+    body('platformName').optional().trim().notEmpty().withMessage('platformName cannot be empty.'),
+    body('supportEmail').optional().isEmail().withMessage('Valid supportEmail is required.'),
+    body('defaultTimezone').optional().custom((v: string) => {
+      if (typeof v !== 'string' || !v.trim()) {
+        throw new Error('defaultTimezone cannot be empty when provided.');
+      }
+      if (!isValidIanaTimezone(v.trim())) throw new Error('Invalid IANA timezone.');
+      return true;
+    }),
+    body('currency').optional().isIn(['NGN', 'USD', 'EUR', 'GBP']).withMessage('Invalid currency.'),
+  ],
+  validate,
+  patchAdminGeneralSettings
+);
+
+adminRouter.patch(
+  '/settings/features',
+  authenticate,
+  adminOnly,
+  [
+    body('maintenanceMode').optional().isBoolean().withMessage('maintenanceMode must be a boolean.'),
+    body('allowUserRegistration').optional().isBoolean().withMessage('allowUserRegistration must be a boolean.'),
+    body('requireEmailVerification')
+      .optional()
+      .isBoolean()
+      .withMessage('requireEmailVerification must be a boolean.'),
+    body('autoEnrollment').optional().isBoolean().withMessage('autoEnrollment must be a boolean.'),
+  ],
+  validate,
+  patchAdminFeaturesSettings
+);
+
+adminRouter.patch(
+  '/settings/notifications',
+  authenticate,
+  adminOnly,
+  [
+    body('emailNotificationsEnabled')
+      .isBoolean()
+      .withMessage('emailNotificationsEnabled must be a boolean.'),
+  ],
+  validate,
+  patchAdminNotificationsSettings
+);
+
 adminRouter.get('/users', authenticate, adminOnly, getAllUsers);
 adminRouter.get('/users/:id', authenticate, adminOnly, getUserById);
 adminRouter.get('/cal/event-types', authenticate, adminOnly, getCalEventTypes);

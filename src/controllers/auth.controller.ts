@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import prisma from '../config/prisma';
+import { ensurePlatformSettings } from '../services/platformSettings.service';
 import { catchAsync, AppError } from '../middleware/error.middleware';
 import { sendEmailVerificationEmail, sendPasswordResetEmail } from '../utils/email.service';
 import { getGoogleClientIds, verifyGoogleIdToken } from '../utils/googleAuth';
@@ -45,6 +46,11 @@ const meResponseSelect = {
 // ── Register ──────────────────────────────────────────────────────────────────
 export const register = catchAsync(async (req: Request, res: Response) => {
   const { firstName, lastName, email, password } = req.body;
+
+  const settings = await ensurePlatformSettings();
+  if (!settings.allowUserRegistration) {
+    throw new AppError('New account registration is temporarily disabled.', 403);
+  }
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) throw new AppError('Email already in use.', 400);
@@ -145,6 +151,11 @@ export const googleAuth = catchAsync(async (req: Request, res: Response) => {
         select: publicUserFields,
       });
     } else {
+      const plat = await ensurePlatformSettings();
+      if (!plat.allowUserRegistration) {
+        throw new AppError('New account registration is temporarily disabled.', 403);
+      }
+
       user = await prisma.user.create({
         data: {
           email: profile.email,

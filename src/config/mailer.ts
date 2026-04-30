@@ -1,5 +1,6 @@
 import nodemailer, { SendMailOptions } from 'nodemailer';
 import { Resend } from 'resend';
+import prisma from './prisma';
 
 let resendClient: Resend | null = null;
 
@@ -106,6 +107,19 @@ async function sendViaResend(options: SendMailOptions) {
   return data;
 }
 
+/** When admin disables platform emails, outbound transactional mail is skipped (logged). */
+async function platformEmailsEnabled(): Promise<boolean> {
+  try {
+    const row = await prisma.platformSettings.findUnique({
+      where: { id: 'default' },
+      select: { emailNotificationsEnabled: true },
+    });
+    return row?.emailNotificationsEnabled ?? true;
+  } catch {
+    return true;
+  }
+}
+
 /**
  * When EMAIL_DEV_REDIRECT_TO is set:
  * - In non-production, all mail is delivered to that address (Resend sandbox, etc.).
@@ -114,6 +128,12 @@ async function sendViaResend(options: SendMailOptions) {
  * Headers include X-Originally-To; verification/reset tokens in the body are unchanged.
  */
 export async function sendMail(options: SendMailOptions) {
+  const emailsOn = await platformEmailsEnabled();
+  if (!emailsOn) {
+    console.warn('[mail] Skipped (platform emailNotificationsEnabled=false):', options.subject ?? '');
+    return undefined;
+  }
+
   const redirectRaw = process.env.EMAIL_DEV_REDIRECT_TO?.trim();
   const allowRedirect =
     redirectRaw &&

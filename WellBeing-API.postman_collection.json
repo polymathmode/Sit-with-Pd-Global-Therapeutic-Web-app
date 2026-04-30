@@ -1355,6 +1355,75 @@
             },
             "description": "Admin only. Fetches from Cal.com then paginates in memory. Response: { data, meta }."
           }
+        },
+        {
+          "name": "[ADMIN] Get Platform Settings",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/settings",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "settings"]
+            },
+            "description": "Admin only. Singleton platform config for the dashboard Settings UI: general (name, support email, timezone, currency), features (maintenance, registration, verification, auto-enrollment), and emailNotificationsEnabled.\nNote: maintenanceMode is stored for the frontend; APIs are not hard-blocked unless you add middleware.\nCurrency enum: NGN | USD | EUR | GBP.\nenforcements: allowUserRegistration blocks email+Google signup; requireEmailVerification blocks dashboard/program content, payments, camp register, consultations list except admins; emailNotificationsEnabled=false skips outbound mail via sendMail."
+          }
+        },
+        {
+          "name": "[ADMIN] Update Platform Settings — General",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/admin/settings/general", "host": ["{{baseUrl}}"], "path": ["api", "admin", "settings", "general"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"platformName\": \"Sit With PD\",\n  \"supportEmail\": \"support@sitwithpd.com\",\n  \"defaultTimezone\": \"Africa/Lagos\",\n  \"currency\": \"NGN\"\n}"
+            },
+            "description": "Partial PATCH — at least one field. defaultTimezone must be valid IANA. currency ∈ NGN, USD, EUR, GBP."
+          }
+        },
+        {
+          "name": "[ADMIN] Update Platform Settings — Features",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/settings/features",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "settings", "features"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"maintenanceMode\": false,\n  \"allowUserRegistration\": true,\n  \"requireEmailVerification\": true,\n  \"autoEnrollment\": false\n}"
+            },
+            "description": "Partial PATCH — booleans only. autoEnrollment is stored for future use (payments still create purchases as today)."
+          }
+        },
+        {
+          "name": "[ADMIN] Update Platform Settings — Notifications",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/settings/notifications",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "settings", "notifications"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"emailNotificationsEnabled\": true\n}"
+            },
+            "description": "PATCH with emailNotificationsEnabled (required boolean). When false, sendMail skips delivery (logged)."
+          }
         }
       ]
     }

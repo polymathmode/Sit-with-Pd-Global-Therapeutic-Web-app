@@ -10,6 +10,7 @@ import {
   updateService,
 } from '../controllers/consultation.controller';
 import { authenticate, adminOnly } from '../middleware/auth.middleware';
+import { enforceVerifiedEmailIfRequired } from '../middleware/platformSettings.middleware';
 
 const router = Router();
 
@@ -18,7 +19,7 @@ router.get('/services', getServices);
 router.get('/services/:id', getServiceById);
 
 // ── User ──────────────────────────────────────────────────────────────────────
-router.get('/my', authenticate, getMyConsultations);
+router.get('/my', authenticate, enforceVerifiedEmailIfRequired, getMyConsultations);
 
 // ── Admin: manual booking (no Cal.com) ─────────────────────────────────────────
 router.post('/book', authenticate, adminOnly, adminManualBookConsultation);
