@@ -301,7 +301,7 @@ model CampRegistration {
   createdAt        DateTime @default(now())
 
   user    User      @relation(fields: [userId], references: [id])
-  camp    Camp      @relation(fields: [campId], references: [id])
+  camp    Camp      @relation(fields: [campId], references: [id], onDelete: Cascade)
   tier    CampTier? @relation(fields: [tierId], references: [id], onDelete: SetNull)
   payment Payment?
 
@@ -365,7 +365,7 @@ model Payment {
 
   user             User              @relation(fields: [userId], references: [id])
   purchase         Purchase?         @relation(fields: [purchaseId], references: [id])
-  campRegistration CampRegistration? @relation(fields: [campRegistrationId], references: [id])
+  campRegistration CampRegistration? @relation(fields: [campRegistrationId], references: [id], onDelete: SetNull)
   consultation     Consultation?     @relation(fields: [consultationId], references: [id])
 
   @@map("payments")

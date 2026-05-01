@@ -246,7 +246,9 @@ export const updateCamp = catchAsync(async (req: AuthRequest, res: Response) => 
   res.json({ success: true, message: 'Camp updated.', data: camp });
 });
 
-// DELETE /api/camps/:id — Delete a camp (cascades to tiers, images, testimonials)
+// DELETE /api/camps/:id — Deletes camp; cascades tiers, images, registrations.
+// Payments on camp registrations retain rows with campRegistrationId nulled (FK SET NULL).
+// Testimonials tied to this camp: campId → null (already onDelete SetNull).
 export const deleteCamp = catchAsync(async (req: Request, res: Response) => {
   await prisma.camp.delete({ where: { id: req.params.id } });
   res.json({ success: true, message: 'Camp deleted.' });
