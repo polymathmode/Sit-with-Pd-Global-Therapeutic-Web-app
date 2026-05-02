@@ -1,6 +1,7 @@
 $kind: http-request
-description: Returns full lesson content (including video URLs) for a purchased
-  program. Returns 403 if not purchased.
+description: |-
+  Purchased programme tree: each module includes `completedAt` (ISO or null).
+  Payload also includes root `progress` (percent, week counts, completion status).
 url: "{{baseUrl}}/api/dashboard/programs/{{programId}}"
 method: GET
 headers:

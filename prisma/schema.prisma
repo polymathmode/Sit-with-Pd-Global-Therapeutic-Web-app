@@ -105,6 +105,7 @@ model User {
   campRegistrations CampRegistration[]
   consultations     Consultation[]
   payments          Payment[]
+  programModuleCompletions ProgramModuleCompletion[]
 
   @@map("users")
 }
@@ -177,15 +178,34 @@ model ProgramModule {
   updatedAt DateTime @updatedAt
 
   week ProgramWeek @relation(fields: [weekId], references: [id], onDelete: Cascade)
+  completions ProgramModuleCompletion[]
 
   @@map("program_modules")
 }
 
+// Recorded when the frontend signals a module was finished (video end, quiz submit, etc.).
+model ProgramModuleCompletion {
+  id          String   @id @default(cuid())
+  userId      String
+  moduleId    String
+  completedAt DateTime @default(now())
+
+  user   User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  module ProgramModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, moduleId])
+  @@index([userId])
+  @@index([moduleId])
+  @@map("program_module_completions")
+}
+
+// Enrolment row; programCompletedAt mirrors "all modules completed" for dashboard Completed section.
 model Purchase {
-  id        String   @id @default(cuid())
-  userId    String
-  programId String
-  createdAt DateTime @default(now())
+  id                String    @id @default(cuid())
+  userId            String
+  programId         String
+  createdAt         DateTime  @default(now())
+  programCompletedAt DateTime?
 
   user    User     @relation(fields: [userId], references: [id])
   program Program  @relation(fields: [programId], references: [id])

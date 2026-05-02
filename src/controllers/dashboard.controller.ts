@@ -1,14 +1,19 @@
 import { Response } from 'express';
 import prisma from '../config/prisma';
-import { catchAsync } from '../middleware/error.middleware';
+import { catchAsync, AppError } from '../middleware/error.middleware';
 import { AuthRequest } from '../types';
+import {
+  buildProgramDashboardPayload,
+  completeProgramModule as completeProgramModuleSvc,
+  getProgressOverviewsForPrograms,
+  programDashboardInclude,
+} from '../services/programProgress.service';
 
 // GET /api/dashboard — User's full dashboard data
 export const getDashboard = catchAsync(async (req: AuthRequest, res: Response) => {
   const userId = req.user!.id;
 
   const [purchases, campRegistrations, consultations] = await Promise.all([
-    // Purchased programs with lesson count
     prisma.purchase.findMany({
       where: { userId },
       include: {
@@ -20,7 +25,6 @@ export const getDashboard = catchAsync(async (req: AuthRequest, res: Response) =
       orderBy: { createdAt: 'desc' },
     }),
 
-    // Camp registrations
     prisma.campRegistration.findMany({
       where: { userId },
       include: {
@@ -30,7 +34,6 @@ export const getDashboard = catchAsync(async (req: AuthRequest, res: Response) =
       orderBy: { createdAt: 'desc' },
     }),
 
-    // Consultation bookings
     prisma.consultation.findMany({
       where: { userId },
       include: {
@@ -41,19 +44,32 @@ export const getDashboard = catchAsync(async (req: AuthRequest, res: Response) =
     }),
   ]);
 
+  const successProgramIds = purchases
+    .filter((p) => p.payment?.status === 'SUCCESS')
+    .map((p) => p.programId);
+
+  const progressByProgram = await getProgressOverviewsForPrograms(userId, successProgramIds);
+
+  const purchasesWithProgress = purchases.map((p) => ({
+    ...p,
+    progress:
+      p.payment?.status === 'SUCCESS'
+        ? progressByProgram.get(p.programId) ?? null
+        : null,
+  }));
+
   res.json({
     success: true,
     message: 'Dashboard data fetched.',
-    data: { purchases, campRegistrations, consultations },
+    data: { purchases: purchasesWithProgress, campRegistrations, consultations },
   });
 });
 
-// GET /api/dashboard/programs/:programId — Access program content (lessons)
+// GET /api/dashboard/programs/:programId — Purchased program tree + module completion + progress rollup
 export const getProgramContent = catchAsync(async (req: AuthRequest, res: Response) => {
   const userId = req.user!.id;
   const { programId } = req.params;
 
-  // Confirm user has purchased this program
   const purchase = await prisma.purchase.findUnique({
     where: { userId_programId: { userId, programId } },
     include: { payment: true },
@@ -68,15 +84,40 @@ export const getProgramContent = catchAsync(async (req: AuthRequest, res: Respon
 
   const program = await prisma.program.findUnique({
     where: { id: programId },
-    include: {
-      weeks: {
-        orderBy: { order: 'asc' },
-        include: {
-          modules: { orderBy: { order: 'asc' } },
-        },
-      },
-    },
+    include: programDashboardInclude,
   });
 
-  res.json({ success: true, message: 'Program content fetched.', data: program });
+  if (!program) {
+    throw new AppError('Program not found.', 404);
+  }
+
+  const data = await buildProgramDashboardPayload(userId, programId, program);
+
+  res.json({ success: true, message: 'Program content fetched.', data });
+});
+
+/**
+ * POST /api/dashboard/programs/:programId/modules/:moduleId/complete
+ * Frontend calls when the learner finishes a module (e.g. video ended, quiz submitted). Idempotent.
+ */
+export const completeProgramModule = catchAsync(async (req: AuthRequest, res: Response) => {
+  const userId = req.user!.id;
+  const { programId, moduleId } = req.params;
+
+  const result = await completeProgramModuleSvc({ userId, programId, moduleId });
+
+  if (!result.ok) {
+    return res.status(result.status).json({
+      success: false,
+      message: result.message,
+    });
+  }
+
+  res.json({
+    success: true,
+    message: result.progress.isProgramCompleted
+      ? 'Module completed. You have finished this programme!'
+      : 'Module progress saved.',
+    data: result.progress,
+  });
 });

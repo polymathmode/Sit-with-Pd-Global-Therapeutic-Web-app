@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Well-Being Platform API",
-    "description": "Complete API collection for the Well-Being Web Platform. \n\n**Setup:**\n1. Set the `baseUrl` variable to your server (default: http://localhost:5000)\n2. Run **Register** or **Login** first — the token auto-saves to `authToken`\n3. All protected routes automatically use the saved token via collection-level auth\n4. **Blog:** **Create** / **Create (Draft)** test scripts save `blogPostId` and `blogSlug`. Admin update/delete and **Get by ID (admin)** use `blogPostId`. Public **Get by Slug** uses `blogSlug`.\n5. **Admin list GETs** (users, programs, blog, payments, consultations, testimonials admin, camp participants, Cal event types): use `?page=1&limit=20` (limit max 100). **Get All Users** accepts optional `?search=` (first name, last name, email). **Get All Consultations** accepts optional `?search=` (user name/email, service title) and optional `?status=` (`PENDING`, `PENDING_PAYMENT`, `CONFIRMED`, `CANCELLED`, `COMPLETED`). **Get All Programs** — public `GET /api/programs` and admin `GET /api/programs/admin/all` — accepts optional `?search=` (title, description) and optional `?category=` (`LEADERS`, `STUDENTS`, `PROFESSIONALS`). Public list is unpaginated `{ data }`; admin list is paginated `{ data, meta }`. **Newsletter:** `POST /api/newsletter/subscribe` (JSON: `email`, optional `source`) stores locally and syncs to Resend Contacts when `RESEND_API_KEY` is set; optional comma-separated `RESEND_NEWSLETTER_SEGMENT_IDS`. `GET /api/newsletter/unsubscribe?token=` — browser redirect to `CLIENT_URL` query flags; `?format=json` or `Accept: application/json` returns JSON. **Admin:** `GET /api/admin/newsletter/subscriptions` — paginated (`page`, `limit`), optional `search` (email/source), optional `status` (`all`|`active`|`unsubscribed`); excludes `unsubscribeToken` from rows.\n\n**Seeded Admin:**\n- Email: admin@wellbeing.com\n- Password: Admin@1234",
+    "description": "Complete API collection for the Well-Being Web Platform. \n\n**Setup:**\n1. Set the `baseUrl` variable to your server (default: http://localhost:5000)\n2. Run **Register** or **Login** first — the token auto-saves to `authToken`\n3. All protected routes automatically use the saved token via collection-level auth\n4. **Blog:** **Create** / **Create (Draft)** test scripts save `blogPostId` and `blogSlug`. Admin update/delete and **Get by ID (admin)** use `blogPostId`. Public **Get by Slug** uses `blogSlug`.\n5. **Admin list GETs** (users, programs, blog, payments, consultations, testimonials admin, camp participants, Cal event types): use `?page=1&limit=20` (limit max 100). **Get All Users** accepts optional `?search=` (first name, last name, email). **Get All Consultations** accepts optional `?search=` (user name/email, service title) and optional `?status=` (`PENDING`, `PENDING_PAYMENT`, `CONFIRMED`, `CANCELLED`, `COMPLETED`). **Get All Programs** — public `GET /api/programs` and admin `GET /api/programs/admin/all` — accepts optional `?search=` (title, description) and optional `?category=` (`LEADERS`, `STUDENTS`, `PROFESSIONALS`). Public list is unpaginated `{ data }`; admin list is paginated `{ data, meta }`. **Newsletter:** `POST /api/newsletter/subscribe` (JSON: `email`, optional `source`) stores locally and syncs to Resend Contacts when `RESEND_API_KEY` is set; optional comma-separated `RESEND_NEWSLETTER_SEGMENT_IDS`. `GET /api/newsletter/unsubscribe?token=` — browser redirect to `CLIENT_URL` query flags; `?format=json` or `Accept: application/json` returns JSON. **Admin:** `GET /api/admin/newsletter/subscriptions` — paginated (`page`, `limit`), optional `search` (email/source), optional `status` (`all`|`active`|`unsubscribed`); excludes `unsubscribeToken` from rows. **Programmes (learner progress):** `GET /api/dashboard` includes `progress` on each purchased programme (`payment` SUCCESS). `GET /api/dashboard/programs/:id` merges `completedAt` on modules plus `progress`. `POST /api/dashboard/programs/:programId/modules/:moduleId/complete` records module completion when the learner finishes — idempotent.\n\n**Seeded Admin:**\n- Email: admin@wellbeing.com\n- Password: Admin@1234",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -18,6 +18,7 @@
     { "key": "baseUrl", "value": "http://localhost:5000", "type": "string" },
     { "key": "authToken", "value": "", "type": "string" },
     { "key": "programId", "value": "", "type": "string" },
+    { "key": "programModuleId", "value": "", "type": "string" },
     { "key": "lessonId", "value": "", "type": "string" },
     { "key": "campId", "value": "", "type": "string" },
     { "key": "campRegistrationId", "value": "", "type": "string" },
@@ -1377,7 +1378,7 @@
             "method": "GET",
             "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
             "url": { "raw": "{{baseUrl}}/api/dashboard", "host": ["{{baseUrl}}"], "path": ["api", "dashboard"] },
-            "description": "Returns the logged-in user's purchases, camp registrations, and consultation bookings in one call."
+            "description": "Returns purchases (each successful programme purchase includes `progress`: percent, weeks breakdown, `isProgramCompleted`, `programCompletedAt`), camp registrations, and consultations."
           }
         },
         {
@@ -1386,7 +1387,20 @@
             "method": "GET",
             "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
             "url": { "raw": "{{baseUrl}}/api/dashboard/programs/{{programId}}", "host": ["{{baseUrl}}"], "path": ["api", "dashboard", "programs", "{{programId}}"] },
-            "description": "Returns full lesson content (including video URLs) for a purchased program. Returns 403 if not purchased."
+            "description": "Purchased programme only. Full week/module tree plus `completedAt` per module and root `progress` rollup. 403 if not purchased."
+          }
+        },
+        {
+          "name": "Mark module complete (progress)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/dashboard/programs/{{programId}}/modules/{{programModuleId}}/complete",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "dashboard", "programs", "{{programId}}", "modules", "{{programModuleId}}", "complete"]
+            },
+            "description": "Call when the learner finishes a module (e.g. video ended, quiz submitted). Idempotent. Returns updated `ProgramProgressOverview`. Sets `purchase.programCompletedAt` when 100% modules done."
           }
         },
         {

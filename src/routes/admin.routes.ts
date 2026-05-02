@@ -1,6 +1,10 @@
 import { Router } from 'express';
 import { body } from 'express-validator';
-import { getDashboard, getProgramContent } from '../controllers/dashboard.controller';
+import {
+  getDashboard,
+  getProgramContent,
+  completeProgramModule,
+} from '../controllers/dashboard.controller';
 import { contactDashboardSupport, contactProgramFacilitator } from '../controllers/dashboardSupport.controller';
 import {
   getDashboardStats,
@@ -37,6 +41,12 @@ dashboardRouter.get(
   authenticate,
   enforceVerifiedEmailIfRequired,
   getProgramContent
+);
+dashboardRouter.post(
+  '/programs/:programId/modules/:moduleId/complete',
+  authenticate,
+  enforceVerifiedEmailIfRequired,
+  completeProgramModule
 );
 
 const dashboardMessageValidators = [

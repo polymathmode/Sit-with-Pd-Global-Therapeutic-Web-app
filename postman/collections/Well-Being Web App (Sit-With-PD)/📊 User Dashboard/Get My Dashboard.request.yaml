@@ -1,6 +1,7 @@
 $kind: http-request
-description: Returns the logged-in user's purchases, camp registrations, and
-  consultation bookings in one call.
+description: |-
+  Purchases (with `progress` for successful programme payments), camps, and consultations.
+  Programme `progress` lists week stats, percentComplete, isProgramCompleted, programCompletedAt.
 url: "{{baseUrl}}/api/dashboard"
 method: GET
 headers:
