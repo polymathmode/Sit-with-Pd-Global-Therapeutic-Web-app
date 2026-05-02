@@ -95,6 +95,8 @@ function parseModuleType(raw: unknown, required = false): ModuleType | undefined
   return s as ModuleType;
 }
 
+const PROGRAM_SEARCH_MAX_LEN = 100;
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Public Endpoints
 // ─────────────────────────────────────────────────────────────────────────────
@@ -103,10 +105,30 @@ function parseModuleType(raw: unknown, required = false): ModuleType | undefined
  * GET /api/programs
  * Public: returns all published programs with week/module counts for the listing page.
  * Shows: Program Name, Type (category), Enrolled count, Price, Status (isPublished).
+ * Optional query: search (substring on title/description), category (LEADERS|STUDENTS|PROFESSIONALS).
  */
-export const getAllPrograms = catchAsync(async (_req: Request, res: Response) => {
+export const getAllPrograms = catchAsync(async (req: Request, res: Response) => {
+  const rawSearch = req.query.search;
+  const search =
+    typeof rawSearch === 'string' ? rawSearch.trim().slice(0, PROGRAM_SEARCH_MAX_LEN) : '';
+
+  const category = parseCategory(req.query.category, false);
+
+  const where: Prisma.ProgramWhereInput = {
+    isPublished: true,
+    ...(category ? { category } : {}),
+    ...(search.length > 0
+      ? {
+          OR: [
+            { title: { contains: search, mode: 'insensitive' } },
+            { description: { contains: search, mode: 'insensitive' } },
+          ],
+        }
+      : {}),
+  };
+
   const programs = await prisma.program.findMany({
-    where: { isPublished: true },
+    where,
     select: {
       id: true,
       title: true,
@@ -180,12 +202,32 @@ export const getProgramById = catchAsync(async (req: Request, res: Response) => 
  * GET /api/programs/admin/all
  * Admin: returns all programs (published and unpublished) for the Programs table.
  * The table columns are: Program Name, Type, Enrolled, Price, Status, Actions.
+ * Optional query: search (title/description), category (program type enum), plus page/limit.
  */
 export const adminGetAllPrograms = catchAsync(async (req: AuthRequest, res: Response) => {
   const { skip, page, limit } = parseAdminPagination(req);
 
+  const rawSearch = req.query.search;
+  const search =
+    typeof rawSearch === 'string' ? rawSearch.trim().slice(0, PROGRAM_SEARCH_MAX_LEN) : '';
+
+  const category = parseCategory(req.query.category, false);
+
+  const where: Prisma.ProgramWhereInput = {
+    ...(category ? { category } : {}),
+    ...(search.length > 0
+      ? {
+          OR: [
+            { title: { contains: search, mode: 'insensitive' } },
+            { description: { contains: search, mode: 'insensitive' } },
+          ],
+        }
+      : {}),
+  };
+
   const [programs, total] = await Promise.all([
     prisma.program.findMany({
+      where,
       include: {
         _count: {
           select: {
@@ -198,7 +240,7 @@ export const adminGetAllPrograms = catchAsync(async (req: AuthRequest, res: Resp
       skip,
       take: limit,
     }),
-    prisma.program.count(),
+    prisma.program.count({ where }),
   ]);
 
   res.json({

@@ -1,9 +1,11 @@
 import { Request, Response } from 'express';
-import { Prisma } from '@prisma/client';
+import { ConsultationStatus, Prisma } from '@prisma/client';
 import prisma from '../config/prisma';
 import { buildMeta, parseAdminPagination } from '../lib/pagination';
 import { catchAsync, AppError } from '../middleware/error.middleware';
 import { AuthRequest } from '../types';
+
+const ADMIN_CONSULTATION_SEARCH_MAX_LEN = 100;
 
 const CAL_EVENT_TYPE_TAKEN =
   'A consultation service already uses this Cal.com event type. Use a different event type or update the existing service.';
@@ -111,12 +113,43 @@ export const getMyConsultations = catchAsync(async (req: AuthRequest, res: Respo
 // ADMIN ROUTES
 // ─────────────────────────────────────────────
 
-// GET /api/admin/consultations — View all bookings
+// GET /api/admin/consultations — optional ?search= & ?status=PENDING|…
 export const getAllConsultations = catchAsync(async (req: Request, res: Response) => {
   const { skip, page, limit } = parseAdminPagination(req);
 
+  const rawSearch = req.query.search;
+  const search =
+    typeof rawSearch === 'string'
+      ? rawSearch.trim().slice(0, ADMIN_CONSULTATION_SEARCH_MAX_LEN)
+      : '';
+
+  const rawStatus = req.query.status;
+  let status: ConsultationStatus | undefined;
+  if (rawStatus !== undefined && String(rawStatus).trim() !== '') {
+    const s = String(rawStatus).trim().toUpperCase();
+    if (!Object.values(ConsultationStatus).includes(s as ConsultationStatus)) {
+      throw new AppError(`Invalid status. Use one of: ${Object.values(ConsultationStatus).join(', ')}.`, 400);
+    }
+    status = s as ConsultationStatus;
+  }
+
+  const where: Prisma.ConsultationWhereInput = {
+    ...(status ? { status } : {}),
+    ...(search.length > 0
+      ? {
+          OR: [
+            { user: { firstName: { contains: search, mode: 'insensitive' } } },
+            { user: { lastName: { contains: search, mode: 'insensitive' } } },
+            { user: { email: { contains: search, mode: 'insensitive' } } },
+            { service: { title: { contains: search, mode: 'insensitive' } } },
+          ],
+        }
+      : {}),
+  };
+
   const [consultations, total] = await Promise.all([
     prisma.consultation.findMany({
+      where,
       include: {
         user: { select: { id: true, firstName: true, lastName: true, email: true } },
         service: true,
@@ -126,7 +159,7 @@ export const getAllConsultations = catchAsync(async (req: Request, res: Response
       skip,
       take: limit,
     }),
-    prisma.consultation.count(),
+    prisma.consultation.count({ where }),
   ]);
 
   res.json({

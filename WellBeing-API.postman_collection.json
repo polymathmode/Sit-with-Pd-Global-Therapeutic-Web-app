@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Well-Being Platform API",
-    "description": "Complete API collection for the Well-Being Web Platform. \n\n**Setup:**\n1. Set the `baseUrl` variable to your server (default: http://localhost:5000)\n2. Run **Register** or **Login** first — the token auto-saves to `authToken`\n3. All protected routes automatically use the saved token via collection-level auth\n4. **Blog:** **Create** / **Create (Draft)** test scripts save `blogPostId` and `blogSlug`. Admin update/delete and **Get by ID (admin)** use `blogPostId`. Public **Get by Slug** uses `blogSlug`.\n5. **Admin list GETs** (users, programs, blog, payments, consultations, testimonials admin, camp participants, Cal event types): use `?page=1&limit=20` (limit max 100). **Get All Users** also accepts optional `?search=` (matches substring on first name, last name, email — case insensitive). Response shape: `{ data: [...], meta: { total, page, limit, totalPages } }`.\n\n**Seeded Admin:**\n- Email: admin@wellbeing.com\n- Password: Admin@1234",
+    "description": "Complete API collection for the Well-Being Web Platform. \n\n**Setup:**\n1. Set the `baseUrl` variable to your server (default: http://localhost:5000)\n2. Run **Register** or **Login** first — the token auto-saves to `authToken`\n3. All protected routes automatically use the saved token via collection-level auth\n4. **Blog:** **Create** / **Create (Draft)** test scripts save `blogPostId` and `blogSlug`. Admin update/delete and **Get by ID (admin)** use `blogPostId`. Public **Get by Slug** uses `blogSlug`.\n5. **Admin list GETs** (users, programs, blog, payments, consultations, testimonials admin, camp participants, Cal event types): use `?page=1&limit=20` (limit max 100). **Get All Users** accepts optional `?search=` (first name, last name, email). **Get All Consultations** accepts optional `?search=` (user name/email, service title) and optional `?status=` (`PENDING`, `PENDING_PAYMENT`, `CONFIRMED`, `CANCELLED`, `COMPLETED`). **Get All Programs** — public `GET /api/programs` and admin `GET /api/programs/admin/all` — accepts optional `?search=` (title, description) and optional `?category=` (`LEADERS`, `STUDENTS`, `PROFESSIONALS`). Public list is unpaginated `{ data }`; admin list is paginated `{ data, meta }`.\n\n**Seeded Admin:**\n- Email: admin@wellbeing.com\n- Password: Admin@1234",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -258,8 +258,16 @@
           "request": {
             "auth": { "type": "noauth" },
             "method": "GET",
-            "url": { "raw": "{{baseUrl}}/api/programs", "host": ["{{baseUrl}}"], "path": ["api", "programs"] },
-            "description": "Returns all published programs. No auth required."
+            "url": {
+              "raw": "{{baseUrl}}/api/programs?search=&category=",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "programs"],
+              "query": [
+                { "key": "search", "value": "", "description": "Substring on title/description (case-insensitive). Max 100 chars." },
+                { "key": "category", "value": "", "description": "LEADERS | STUDENTS | PROFESSIONALS" }
+              ]
+            },
+            "description": "Published programs only. Optional filters: search, category (program type). No auth."
           }
         },
         {
@@ -277,15 +285,17 @@
             "method": "GET",
             "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
             "url": {
-              "raw": "{{baseUrl}}/api/programs/admin/all?page=1&limit=20",
+              "raw": "{{baseUrl}}/api/programs/admin/all?page=1&limit=20&search=&category=",
               "host": ["{{baseUrl}}"],
               "path": ["api", "programs", "admin", "all"],
               "query": [
                 { "key": "page", "value": "1", "description": "default 1" },
-                { "key": "limit", "value": "20", "description": "default 20, max 100" }
+                { "key": "limit", "value": "20", "description": "default 20, max 100" },
+                { "key": "search", "value": "", "description": "Substring on title/description (case-insensitive). Max 100 chars." },
+                { "key": "category", "value": "", "description": "LEADERS | STUDENTS | PROFESSIONALS" }
               ]
             },
-            "description": "Admin only. Paginated. Programs (published and unpublished) with week/purchase _counts. Response: { data, meta }."
+            "description": "Admin only. Paginated. Optional search + category (program type). Programs (published and unpublished) with week/purchase _counts. Response: { data, meta }."
           }
         },
         {
@@ -1105,15 +1115,17 @@
             "method": "GET",
             "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
             "url": {
-              "raw": "{{baseUrl}}/api/consultations?page=1&limit=20",
+              "raw": "{{baseUrl}}/api/consultations?page=1&limit=20&search=&status=",
               "host": ["{{baseUrl}}"],
               "path": ["api", "consultations"],
               "query": [
                 { "key": "page", "value": "1" },
-                { "key": "limit", "value": "20" }
+                { "key": "limit", "value": "20" },
+                { "key": "search", "value": "", "description": "Substring on user first/last/email and service title (case-insensitive). Max 100 chars." },
+                { "key": "status", "value": "", "description": "PENDING | PENDING_PAYMENT | CONFIRMED | CANCELLED | COMPLETED" }
               ]
             },
-            "description": "Admin only. Paginated. Response: { data, meta }."
+            "description": "Admin only. Paginated. Optional filters: search, status (ConsultationStatus). Response: { data, meta }."
           }
         },
         {
