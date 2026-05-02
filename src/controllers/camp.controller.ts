@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { Prisma } from '@prisma/client';
+import { Prisma, CampStatus } from '@prisma/client';
 import prisma from '../config/prisma';
 import { buildMeta, parseAdminPagination } from '../lib/pagination';
 import { catchAsync, AppError } from '../middleware/error.middleware';
@@ -33,6 +33,84 @@ async function getSeatsTaken(campId: string): Promise<number> {
 async function getTierUnitsSold(tierId: string): Promise<number> {
   return prisma.campRegistration.count({ where: { tierId } });
 }
+
+const ADMIN_CAMP_SEARCH_MAX_LEN = 100;
+
+// ─────────────────────────────────────────────
+// ADMIN — list all camps (pagination, search, status)
+// ─────────────────────────────────────────────
+
+// GET /api/camps/admin/all — optional ?search= & ?status=UPCOMING|ONGOING|COMPLETED|CANCELLED
+export const getAllCampsAdmin = catchAsync(async (req: Request, res: Response) => {
+  const { skip, page, limit } = parseAdminPagination(req);
+
+  const rawSearch = req.query.search;
+  const search =
+    typeof rawSearch === 'string' ? rawSearch.trim().slice(0, ADMIN_CAMP_SEARCH_MAX_LEN) : '';
+
+  const rawStatus = req.query.status;
+  let status: CampStatus | undefined;
+  if (rawStatus !== undefined && String(rawStatus).trim() !== '') {
+    const s = String(rawStatus).trim().toUpperCase();
+    if (!Object.values(CampStatus).includes(s as CampStatus)) {
+      throw new AppError(`Invalid status. Use one of: ${Object.values(CampStatus).join(', ')}.`, 400);
+    }
+    status = s as CampStatus;
+  }
+
+  const where: Prisma.CampWhereInput = {
+    ...(status ? { status } : {}),
+    ...(search.length > 0
+      ? {
+          OR: [
+            { title: { contains: search, mode: 'insensitive' } },
+            { location: { contains: search, mode: 'insensitive' } },
+            { description: { contains: search, mode: 'insensitive' } },
+          ],
+        }
+      : {}),
+  };
+
+  const [camps, total] = await Promise.all([
+    prisma.camp.findMany({
+      where,
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        location: true,
+        price: true,
+        currency: true,
+        capacity: true,
+        startDate: true,
+        endDate: true,
+        thumbnail: true,
+        status: true,
+        benefits: true,
+        createdAt: true,
+        updatedAt: true,
+        _count: {
+          select: {
+            registrations: true,
+            tiers: true,
+            images: true,
+          },
+        },
+      },
+      orderBy: { startDate: 'desc' },
+      skip,
+      take: limit,
+    }),
+    prisma.camp.count({ where }),
+  ]);
+
+  res.json({
+    success: true,
+    message: 'Camps fetched.',
+    data: camps,
+    meta: buildMeta(total, page, limit),
+  });
+});
 
 // ─────────────────────────────────────────────
 // PUBLIC ROUTES

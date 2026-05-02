@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   getAllCamps,
+  getAllCampsAdmin,
   getCurrentCamp,
   getCampById,
   registerForCamp,
@@ -22,8 +23,9 @@ import { uploadImage } from '../middleware/upload.middleware';
 const router = Router();
 
 // ── Public ────────────────────────────────────────────────────────────────────
-// Declare /current before /:id so it isn't captured by the param route.
+// Declare /current and /admin/all before /:id so they aren't captured by the param route.
 router.get('/current', getCurrentCamp);
+router.get('/admin/all', authenticate, adminOnly, getAllCampsAdmin);
 router.get('/', getAllCamps);
 router.get('/:id', getCampById);
 
