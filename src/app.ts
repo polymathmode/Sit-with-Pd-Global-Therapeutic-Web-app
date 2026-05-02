@@ -13,6 +13,7 @@ import testimonialRoutes from './routes/testimonial.routes';
 import consultationRoutes from './routes/consultation.routes';
 import paymentRoutes from './routes/payment.routes';
 import blogRoutes from './routes/blog.routes';
+import newsletterRoutes from './routes/newsletter.routes';
 import { dashboardRouter, adminRouter } from './routes/admin.routes';
 import { errorHandler } from './middleware/error.middleware';
 import { calWebhook } from './controllers/consultation.cal.controller';
@@ -45,12 +46,20 @@ const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100,
   message: { success: false, message: 'Too many requests. Please try again later.' },
+  skip: (req) =>
+    typeof req.originalUrl === 'string' && req.originalUrl.startsWith('/api/newsletter'),
 });
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10, // Stricter limit for auth endpoints
   message: { success: false, message: 'Too many login attempts. Please try again later.' },
+});
+
+const newsletterLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  message: { success: false, message: 'Too many subscription attempts. Please try again later.' },
 });
 
 app.use(limiter);
@@ -116,6 +125,7 @@ app.use('/api/programs', programRoutes);
 app.use('/api/camps', campRoutes);
 app.use('/api/testimonials', testimonialRoutes);
 app.use('/api/blog', blogRoutes);
+app.use('/api/newsletter', newsletterLimiter, newsletterRoutes);
 app.use('/api/consultations', consultationRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/dashboard', dashboardRouter);

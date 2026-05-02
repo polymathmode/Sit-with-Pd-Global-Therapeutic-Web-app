@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Well-Being Platform API",
-    "description": "Complete API collection for the Well-Being Web Platform. \n\n**Setup:**\n1. Set the `baseUrl` variable to your server (default: http://localhost:5000)\n2. Run **Register** or **Login** first — the token auto-saves to `authToken`\n3. All protected routes automatically use the saved token via collection-level auth\n4. **Blog:** **Create** / **Create (Draft)** test scripts save `blogPostId` and `blogSlug`. Admin update/delete and **Get by ID (admin)** use `blogPostId`. Public **Get by Slug** uses `blogSlug`.\n5. **Admin list GETs** (users, programs, blog, payments, consultations, testimonials admin, camp participants, Cal event types): use `?page=1&limit=20` (limit max 100). **Get All Users** accepts optional `?search=` (first name, last name, email). **Get All Consultations** accepts optional `?search=` (user name/email, service title) and optional `?status=` (`PENDING`, `PENDING_PAYMENT`, `CONFIRMED`, `CANCELLED`, `COMPLETED`). **Get All Programs** — public `GET /api/programs` and admin `GET /api/programs/admin/all` — accepts optional `?search=` (title, description) and optional `?category=` (`LEADERS`, `STUDENTS`, `PROFESSIONALS`). Public list is unpaginated `{ data }`; admin list is paginated `{ data, meta }`.\n\n**Seeded Admin:**\n- Email: admin@wellbeing.com\n- Password: Admin@1234",
+    "description": "Complete API collection for the Well-Being Web Platform. \n\n**Setup:**\n1. Set the `baseUrl` variable to your server (default: http://localhost:5000)\n2. Run **Register** or **Login** first — the token auto-saves to `authToken`\n3. All protected routes automatically use the saved token via collection-level auth\n4. **Blog:** **Create** / **Create (Draft)** test scripts save `blogPostId` and `blogSlug`. Admin update/delete and **Get by ID (admin)** use `blogPostId`. Public **Get by Slug** uses `blogSlug`.\n5. **Admin list GETs** (users, programs, blog, payments, consultations, testimonials admin, camp participants, Cal event types): use `?page=1&limit=20` (limit max 100). **Get All Users** accepts optional `?search=` (first name, last name, email). **Get All Consultations** accepts optional `?search=` (user name/email, service title) and optional `?status=` (`PENDING`, `PENDING_PAYMENT`, `CONFIRMED`, `CANCELLED`, `COMPLETED`). **Get All Programs** — public `GET /api/programs` and admin `GET /api/programs/admin/all` — accepts optional `?search=` (title, description) and optional `?category=` (`LEADERS`, `STUDENTS`, `PROFESSIONALS`). Public list is unpaginated `{ data }`; admin list is paginated `{ data, meta }`. **Newsletter:** `POST /api/newsletter/subscribe` (JSON: `email`, optional `source`) stores locally and syncs to Resend Contacts when `RESEND_API_KEY` is set; optional comma-separated `RESEND_NEWSLETTER_SEGMENT_IDS`. `GET /api/newsletter/unsubscribe?token=` — browser redirect to `CLIENT_URL` query flags; `?format=json` or `Accept: application/json` returns JSON. **Admin:** `GET /api/admin/newsletter/subscriptions` — paginated (`page`, `limit`), optional `search` (email/source), optional `status` (`all`|`active`|`unsubscribed`); excludes `unsubscribeToken` from rows.\n\n**Seeded Admin:**\n- Email: admin@wellbeing.com\n- Password: Admin@1234",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -30,7 +30,8 @@
     { "key": "userId", "value": "", "type": "string" },
     { "key": "verifyToken", "value": "", "type": "string" },
     { "key": "blogPostId", "value": "", "type": "string" },
-    { "key": "blogSlug", "value": "learning-to-sit-with-your-emotions", "type": "string" }
+    { "key": "blogSlug", "value": "learning-to-sit-with-your-emotions", "type": "string" },
+    { "key": "newsletterUnsubscribeToken", "value": "", "type": "string" }
   ],
   "item": [
 
@@ -44,6 +45,67 @@
             "method": "GET",
             "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] },
             "description": "Verify the server is running."
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "📧 Newsletter",
+      "item": [
+        {
+          "name": "[Public] Newsletter Subscribe",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"newsletter@example.com\",\n  \"source\": \"footer\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/newsletter/subscribe",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "newsletter", "subscribe"]
+            },
+            "description": "No auth. Stricter rate limit (30/15min). Saves to PostgreSQL and syncs to Resend Contacts when RESEND_API_KEY is set."
+          }
+        },
+        {
+          "name": "[Public] Newsletter Unsubscribe (JSON)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/newsletter/unsubscribe?token={{newsletterUnsubscribeToken}}&format=json",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "newsletter", "unsubscribe"],
+              "query": [
+                { "key": "token", "value": "{{newsletterUnsubscribeToken}}", "description": "From DB newsletter_subscriptions.unsubscribeToken after subscribe." },
+                { "key": "format", "value": "json" }
+              ]
+            },
+            "description": "Token from DB newsletter_subscriptions.unsubscribeToken after subscribe — paste into collection variable newsletterUnsubscribeToken. Omit format/json for 302 redirect to CLIENT_URL."
+          }
+        },
+        {
+          "name": "[ADMIN] List newsletter subscriptions",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/newsletter/subscriptions?page=1&limit=20&search=&status=all",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "newsletter", "subscriptions"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20", "description": "max 100" },
+                { "key": "search", "value": "", "description": "substring on email or source" },
+                { "key": "status", "value": "all", "description": "all | active | unsubscribed" }
+              ]
+            },
+            "description": "Omits unsubscribeToken per row for security."
           }
         }
       ]

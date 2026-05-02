@@ -2,7 +2,13 @@ import { Router } from 'express';
 import { body } from 'express-validator';
 import { getDashboard, getProgramContent } from '../controllers/dashboard.controller';
 import { contactDashboardSupport, contactProgramFacilitator } from '../controllers/dashboardSupport.controller';
-import { getDashboardStats, getAllUsers, getUserById, getCalEventTypes } from '../controllers/admin.controller';
+import {
+  getDashboardStats,
+  getAllUsers,
+  getUserById,
+  getCalEventTypes,
+} from '../controllers/admin.controller';
+import { adminListNewsletterSubscriptions } from '../controllers/newsletter.controller';
 import {
   getAdminPlatformSettings,
   patchAdminGeneralSettings,
@@ -121,6 +127,12 @@ adminRouter.patch(
 
 adminRouter.get('/users', authenticate, adminOnly, getAllUsers);
 adminRouter.get('/users/:id', authenticate, adminOnly, getUserById);
+adminRouter.get(
+  '/newsletter/subscriptions',
+  authenticate,
+  adminOnly,
+  adminListNewsletterSubscriptions
+);
 adminRouter.get('/cal/event-types', authenticate, adminOnly, getCalEventTypes);
 
 // Blog (drafts + CRUD — public reads are on /api/blog)

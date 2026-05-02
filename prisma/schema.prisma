@@ -370,3 +370,20 @@ model Payment {
 
   @@map("payments")
 }
+
+// Footer / marketing list: stored locally and synced to Resend Audiences (contacts) when RESEND_API_KEY is set.
+model NewsletterSubscription {
+  id               String    @id @default(cuid())
+  email            String    @unique
+  unsubscribeToken String    @unique
+  source           String    @default("footer")
+  subscribedAt     DateTime  @default(now())
+  unsubscribedAt   DateTime?
+  resendContactId  String?
+  resendSyncedAt   DateTime?
+  resendLastError  String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@map("newsletter_subscriptions")
+}
