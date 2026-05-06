@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { Prisma, CampStatus } from '@prisma/client';
 import prisma from '../config/prisma';
+import { stripLegacyCampPrice } from '../lib/campSerialization';
 import { buildMeta, parseAdminPagination } from '../lib/pagination';
 import { catchAsync, AppError } from '../middleware/error.middleware';
 import { AuthRequest, ApplicantDetails } from '../types';
@@ -79,7 +80,6 @@ export const getAllCampsAdmin = catchAsync(async (req: Request, res: Response) =
         title: true,
         description: true,
         location: true,
-        price: true,
         currency: true,
         capacity: true,
         startDate: true,
@@ -126,7 +126,7 @@ export const getAllCamps = catchAsync(async (_req: Request, res: Response) => {
 
   const withSeats = await Promise.all(
     camps.map(async (camp) => ({
-      ...camp,
+      ...stripLegacyCampPrice(camp),
       seatsTaken: await getSeatsTaken(camp.id),
       seatsRemaining: Math.max(camp.capacity - (await getSeatsTaken(camp.id)), 0),
     }))
@@ -153,7 +153,11 @@ export const getCurrentCamp = catchAsync(async (_req: Request, res: Response) =>
   res.json({
     success: true,
     message: 'Current camp fetched.',
-    data: { ...camp, seatsTaken, seatsRemaining: Math.max(camp.capacity - seatsTaken, 0) },
+    data: {
+      ...stripLegacyCampPrice(camp),
+      seatsTaken,
+      seatsRemaining: Math.max(camp.capacity - seatsTaken, 0),
+    },
   });
 });
 
@@ -171,7 +175,11 @@ export const getCampById = catchAsync(async (req: Request, res: Response) => {
   res.json({
     success: true,
     message: 'Camp fetched.',
-    data: { ...camp, seatsTaken, seatsRemaining: Math.max(camp.capacity - seatsTaken, 0) },
+    data: {
+      ...stripLegacyCampPrice(camp),
+      seatsTaken,
+      seatsRemaining: Math.max(camp.capacity - seatsTaken, 0),
+    },
   });
 });
 
@@ -179,7 +187,7 @@ export const getCampById = catchAsync(async (req: Request, res: Response) => {
 // USER ROUTES
 // ─────────────────────────────────────────────
 
-// POST /api/camps/:id/register — Submit camp application (creates registration; payment handled separately)
+// POST /api/camps/:id/register — Submit camp application (requires at least one tier on the camp; payment handled separately)
 // Body: { tierId: string, applicantDetails?: ApplicantDetails }
 export const registerForCamp = catchAsync(async (req: AuthRequest, res: Response) => {
   const userId = req.user!.id;
@@ -198,21 +206,23 @@ export const registerForCamp = catchAsync(async (req: AuthRequest, res: Response
     throw new AppError('This camp is no longer accepting applications.', 400);
   }
 
-  // Resolve tier (required if camp has tiers configured)
-  let tier = null as (typeof camp.tiers)[number] | null;
-  let participantCount = 1;
+  if (camp.tiers.length === 0) {
+    throw new AppError(
+      'This camp has no participation tiers configured. Add tiers before opening registration.',
+      400
+    );
+  }
 
-  if (camp.tiers.length > 0) {
-    if (!tierId) throw new AppError('Please select a participation tier.', 400);
-    tier = camp.tiers.find((t) => t.id === tierId) ?? null;
-    if (!tier) throw new AppError('Invalid tier selected.', 400);
-    participantCount = tier.seatsPerUnit;
+  if (!tierId) throw new AppError('Please select a participation tier.', 400);
+  const tier = camp.tiers.find((t) => t.id === tierId) ?? null;
+  if (!tier) throw new AppError('Invalid tier selected.', 400);
 
-    if (tier.maxUnits != null) {
-      const sold = await getTierUnitsSold(tier.id);
-      if (sold >= tier.maxUnits) {
-        throw new AppError(`The "${tier.label}" package is sold out.`, 400);
-      }
+  const participantCount = tier.seatsPerUnit;
+
+  if (tier.maxUnits != null) {
+    const sold = await getTierUnitsSold(tier.id);
+    if (sold >= tier.maxUnits) {
+      throw new AppError(`The "${tier.label}" package is sold out.`, 400);
     }
   }
 
@@ -228,7 +238,7 @@ export const registerForCamp = catchAsync(async (req: AuthRequest, res: Response
   if (existing) throw new AppError('You have already applied for this camp.', 400);
 
   // Validate applicantDetails party size matches the tier (e.g. Family of 4 needs 3 party members)
-  if (tier && participantCount > 1) {
+  if (participantCount > 1) {
     const partySize = applicantDetails?.partyMembers?.length ?? 0;
     if (partySize < participantCount - 1) {
       throw new AppError(
@@ -244,7 +254,7 @@ export const registerForCamp = catchAsync(async (req: AuthRequest, res: Response
     data: {
       userId,
       campId,
-      tierId: tier?.id,
+      tierId: tier.id,
       participantCount,
       applicantDetails: (applicantDetails ?? Prisma.JsonNull) as Prisma.InputJsonValue,
     },
@@ -254,7 +264,10 @@ export const registerForCamp = catchAsync(async (req: AuthRequest, res: Response
   res.status(201).json({
     success: true,
     message: 'Application submitted. Please complete payment.',
-    data: registration,
+    data: {
+      ...registration,
+      camp: stripLegacyCampPrice(registration.camp),
+    },
   });
 });
 
@@ -262,10 +275,9 @@ export const registerForCamp = catchAsync(async (req: AuthRequest, res: Response
 // ADMIN ROUTES — CAMPS
 // ─────────────────────────────────────────────
 
-// POST /api/camps — Create a camp
+// POST /api/camps — Create a camp (set prices on tiers after creation)
 export const createCamp = catchAsync(async (req: AuthRequest, res: Response) => {
-  const { title, description, location, price, capacity, startDate, endDate, currency, benefits } =
-    req.body;
+  const { title, description, location, capacity, startDate, endDate, currency, benefits } = req.body;
   const thumbnail = (req.file as Express.Multer.File & { path: string })?.path;
 
   const parsedBenefits = parseStringArray(benefits);
@@ -275,7 +287,6 @@ export const createCamp = catchAsync(async (req: AuthRequest, res: Response) => 
       title,
       description,
       location,
-      ...(price !== undefined && price !== '' && { price: parseFloat(price) }),
       capacity: parseInt(capacity),
       startDate: new Date(startDate),
       endDate: new Date(endDate),
@@ -285,16 +296,19 @@ export const createCamp = catchAsync(async (req: AuthRequest, res: Response) => 
     },
   });
 
-  res.status(201).json({ success: true, message: 'Camp created.', data: camp });
+  res.status(201).json({
+    success: true,
+    message: 'Camp created.',
+    data: stripLegacyCampPrice(camp),
+  });
 });
 
-// PATCH /api/camps/:id — Update a camp
+// PATCH /api/camps/:id — Update a camp (pricing is only via tier endpoints; camp-level `price` is not accepted)
 export const updateCamp = catchAsync(async (req: AuthRequest, res: Response) => {
   const {
     title,
     description,
     location,
-    price,
     capacity,
     startDate,
     endDate,
@@ -310,7 +324,6 @@ export const updateCamp = catchAsync(async (req: AuthRequest, res: Response) => 
       ...(title && { title }),
       ...(description && { description }),
       ...(location && { location }),
-      ...(price !== undefined && price !== '' && { price: parseFloat(price) }),
       ...(capacity && { capacity: parseInt(capacity) }),
       ...(startDate && { startDate: new Date(startDate) }),
       ...(endDate && { endDate: new Date(endDate) }),
@@ -321,7 +334,7 @@ export const updateCamp = catchAsync(async (req: AuthRequest, res: Response) => 
     },
   });
 
-  res.json({ success: true, message: 'Camp updated.', data: camp });
+  res.json({ success: true, message: 'Camp updated.', data: stripLegacyCampPrice(camp) });
 });
 
 // DELETE /api/camps/:id — Deletes camp; cascades tiers, images, registrations.

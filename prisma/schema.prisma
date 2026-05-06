@@ -220,7 +220,7 @@ model Camp {
   title       String
   description String
   location    String
-  // Optional fallback/display price. Source of truth for registration amount is the selected CampTier.
+  // Legacy column; unused for new camps. Pricing is defined only on CampTier — APIs omit this field from camp payloads.
   price       Float?
   currency    String     @default("USD")
   capacity    Int // Total seats across all tiers (sum of registration.participantCount must not exceed this)

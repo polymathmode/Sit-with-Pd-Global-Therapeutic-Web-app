@@ -65,11 +65,12 @@ Health check: `http://localhost:5000/health`
 ### Camps — `/api/camps`
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| GET | `/` | Public | List upcoming camps |
+| GET | `/` | Public | List upcoming camps (`tiers` hold pricing; responses omit camp-level `price`) |
+| GET | `/current` | Public | Next upcoming camp (same shape) |
 | GET | `/:id` | Public | Camp detail |
-| POST | `/:id/register` | User | Register for camp |
-| POST | `/` | Admin | Create camp |
-| PATCH | `/:id` | Admin | Update camp |
+| POST | `/:id/register` | User | Register for camp (`tierId` required; camp must have tiers) |
+| POST | `/` | Admin | Create camp (pricing via **Create tier** only) |
+| PATCH | `/:id` | Admin | Update camp (pricing via tier endpoints) |
 | DELETE | `/:id` | Admin | Delete camp |
 | GET | `/:id/participants` | Admin | View registrants |
 

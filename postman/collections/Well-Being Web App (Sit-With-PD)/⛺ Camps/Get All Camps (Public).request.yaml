@@ -1,8 +1,8 @@
 $kind: http-request
 description: >-
   Returns all upcoming and ongoing camps. No auth required. Each camp includes
-  tiers, gallery images, published testimonials, benefits, seatsTaken, and
-  seatsRemaining.
+  tiers (pricing), gallery images, published testimonials, benefits,
+  seatsTaken, and seatsRemaining. Camp-level price is omitted from payloads.
 url: "{{baseUrl}}/api/camps"
 method: GET
 auth:

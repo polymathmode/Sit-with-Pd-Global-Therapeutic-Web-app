@@ -1,8 +1,10 @@
 $kind: http-request
 description: >-
-  Returns full camp details including tiers, images, published testimonials,
-  benefits, seatsTaken, and seatsRemaining. After response, test script saves
-  the first tier id to `campTierId` when tiers exist.
+  Returns full camp details including tiers (sole source of pricing for UIs —
+  derive headlines such as “From ₦X” from min tier price), images, published
+  testimonials, benefits, seatsTaken, and seatsRemaining. Legacy camp.price is
+  omitted from the payload. After response, test script saves the first tier id
+  to `campTierId` when tiers exist.
 url: "{{baseUrl}}/api/camps/{{campId}}"
 method: GET
 auth:

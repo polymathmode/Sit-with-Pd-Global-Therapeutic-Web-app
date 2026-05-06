@@ -1,7 +1,8 @@
 $kind: http-request
 description: >-
   Admin only. Creates a new camp listing. Add participation tiers separately
-  via **Create Camp Tier**. `price` is optional (tier prices drive payment).
+  via **Create Camp Tier** — tier prices are the only pricing shown to clients
+  and used at checkout. Camp-level `price` is not collected.
   `benefits` is a JSON array or comma-separated list for the “Why attend”
   section. `currency` defaults to USD on the model if omitted.
 url: "{{baseUrl}}/api/camps"
@@ -24,10 +25,6 @@ body:
       key: currency
       value: USD
       description: ISO currency code (e.g. USD, NGN)
-    - type: text
-      key: price
-      value: ""
-      description: Optional display/fallback amount; tier prices are authoritative
     - type: text
       key: benefits
       value: '["Pause and reconnect with yourself","Experience guided reflective practices","Build meaningful connections","Gain clarity and emotional balance"]'

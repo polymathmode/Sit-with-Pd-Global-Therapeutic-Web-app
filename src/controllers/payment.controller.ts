@@ -29,6 +29,7 @@ const paystackRequest = async (endpoint: string, method = 'GET', body?: object) 
 // ── Initialize Payment ────────────────────────────────────────────────────────
 // POST /api/payments/initialize
 // Body: { type: 'PROGRAM' | 'CAMP' | 'CONSULTATION', itemId: string }
+// CAMP: amount comes from the registration's CampTier only.
 export const initializePayment = catchAsync(async (req: AuthRequest, res: Response) => {
   const userId = req.user!.id;
   const { type, itemId } = req.body;
@@ -61,15 +62,14 @@ export const initializePayment = catchAsync(async (req: AuthRequest, res: Respon
     if (!registration) throw new AppError('Camp registration not found.', 404);
     if (registration.userId !== userId) throw new AppError('Unauthorized.', 403);
 
-    // Prefer the tier price; fall back to camp.price (legacy), and 400 if neither is set.
-    const resolvedAmount = registration.tier?.price ?? registration.camp.price ?? null;
-    if (resolvedAmount == null) {
-      throw new AppError('Camp pricing is not configured. Please contact support.', 400);
+    if (!registration.tier) {
+      throw new AppError(
+        'Camp registration is missing tier pricing. Please contact support.',
+        400
+      );
     }
-    amount = resolvedAmount;
-    description = registration.tier
-      ? `Camp Application: ${registration.camp.title} — ${registration.tier.label}`
-      : `Camp Registration: ${registration.camp.title}`;
+    amount = registration.tier.price;
+    description = `Camp Application: ${registration.camp.title} — ${registration.tier.label}`;
 
   } else if (type === 'CONSULTATION') {
     const consultation = await prisma.consultation.findUnique({

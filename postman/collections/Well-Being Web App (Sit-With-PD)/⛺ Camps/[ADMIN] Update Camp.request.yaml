@@ -1,7 +1,7 @@
 $kind: http-request
 description: "Admin only. Updates camp details. Status options: UPCOMING,
-  ONGOING, COMPLETED, CANCELLED. You can patch benefits, currency, and other
-  fields; only sent fields are updated."
+  ONGOING, COMPLETED, CANCELLED. Camp-level price is not collected — use tier
+  endpoints for pricing. Only sent fields are updated."
 url: "{{baseUrl}}/api/camps/{{campId}}"
 method: PATCH
 headers:

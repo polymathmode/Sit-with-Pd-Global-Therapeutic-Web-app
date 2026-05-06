@@ -599,7 +599,7 @@
               "mode": "raw",
               "raw": "{\n  \"tierId\": \"{{campTierId}}\",\n  \"applicantDetails\": {\n    \"fullName\": \"Jane Doe\",\n    \"phone\": \"+2348000000000\",\n    \"emergencyContact\": {\n      \"name\": \"John Doe\",\n      \"phone\": \"+2348000000001\",\n      \"relationship\": \"Spouse\"\n    },\n    \"dietaryRestrictions\": \"Vegetarian\",\n    \"accommodationPreference\": \"Ground floor if possible\",\n    \"partyMembers\": [],\n    \"notes\": \"First time attending.\"\n  }\n}"
             },
-            "description": "Submits a camp application. tierId is required when the camp has tiers. applicantDetails captures dietary info, emergency contact, partyMembers for Couple/Family, etc. Initialize payment with campRegistrationId; amount uses the tier price."
+            "description": "Submits a camp application. `tierId` is required (camp must have tiers). applicantDetails captures dietary info, emergency contact, partyMembers for Couple/Family, etc. Initialize payment with campRegistrationId; amount uses the selected tier price."
           }
         },
         {
@@ -630,7 +630,6 @@
                 { "key": "description", "value": "A presence-based retreat to pause, reflect, and reconnect.", "type": "text" },
                 { "key": "location", "value": "Retreat venue TBD", "type": "text" },
                 { "key": "currency", "value": "USD", "type": "text", "description": "ISO currency code (e.g. USD, NGN)" },
-                { "key": "price", "value": "", "type": "text", "description": "Optional; tier prices are authoritative for payment" },
                 { "key": "benefits", "value": "[\"Pause and reconnect with yourself\",\"Experience guided reflective practices\",\"Build meaningful connections\",\"Gain clarity and emotional balance\"]", "type": "text", "description": "JSON array or comma-separated list" },
                 { "key": "capacity", "value": "30", "type": "text", "description": "Total seats (sum of registration participantCount)" },
                 { "key": "startDate", "value": "2026-05-01T08:00:00.000Z", "type": "text" },
@@ -638,7 +637,7 @@
                 { "key": "thumbnail", "type": "file", "src": "", "description": "Optional: camp thumbnail image" }
               ]
             },
-            "description": "Admin only. Creates a camp. Add participation tiers separately. benefits powers the Why attend list; price is optional when using tiers."
+            "description": "Admin only. Creates a camp. Add participation tiers for pricing. benefits powers the Why attend list; public camp payloads omit legacy camp.price."
           }
         },
         {
@@ -656,7 +655,7 @@
                 { "key": "capacity", "value": "40", "type": "text" }
               ]
             },
-            "description": "Admin only. Partial update. Status options: UPCOMING, ONGOING, COMPLETED, CANCELLED. Patch benefits, currency, capacity, etc."
+            "description": "Admin only. Partial update. Status options: UPCOMING, ONGOING, COMPLETED, CANCELLED. Pricing is managed via tier endpoints; camp.price is not collected."
           }
         },
         {
@@ -1305,7 +1304,7 @@
               "mode": "raw",
               "raw": "{\n  \"type\": \"CAMP\",\n  \"itemId\": \"{{campRegistrationId}}\"\n}"
             },
-            "description": "Initializes Paystack for a camp application. itemId is the camp registration id. Amount uses the tier price (or legacy camp.price)."
+            "description": "Initializes Paystack for a camp application. itemId is the camp registration id. Amount uses the selected tier price only."
           }
         },
         {

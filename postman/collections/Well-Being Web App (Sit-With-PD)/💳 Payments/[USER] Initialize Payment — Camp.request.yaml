@@ -1,6 +1,6 @@
 $kind: http-request
 name: "[USER] Initialize Payment — Camp"
-description: Initializes a Paystack payment for a camp application. itemId must be the camp registration ID (not camp ID). The charged amount comes from the registration's tier price (or legacy camp.price if no tier).
+description: Initializes a Paystack payment for a camp application. itemId must be the camp registration ID (not camp ID). The charged amount comes from the registration's selected tier price.
 url: "{{baseUrl}}/api/payments/initialize"
 method: POST
 headers:

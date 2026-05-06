@@ -1,5 +1,6 @@
 import { Response } from 'express';
 import prisma from '../config/prisma';
+import { stripLegacyCampPrice } from '../lib/campSerialization';
 import { catchAsync, AppError } from '../middleware/error.middleware';
 import { AuthRequest } from '../types';
 import {
@@ -58,10 +59,15 @@ export const getDashboard = catchAsync(async (req: AuthRequest, res: Response) =
         : null,
   }));
 
+  const campRegistrationsSanitized = campRegistrations.map((r) => ({
+    ...r,
+    camp: stripLegacyCampPrice(r.camp),
+  }));
+
   res.json({
     success: true,
     message: 'Dashboard data fetched.',
-    data: { purchases: purchasesWithProgress, campRegistrations, consultations },
+    data: { purchases: purchasesWithProgress, campRegistrations: campRegistrationsSanitized, consultations },
   });
 });
 

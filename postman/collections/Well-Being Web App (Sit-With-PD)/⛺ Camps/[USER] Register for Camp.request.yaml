@@ -1,10 +1,10 @@
 $kind: http-request
 description: >-
-  Submits a camp application for the logged-in user. Body requires `tierId` when
-  the camp has participation tiers. Include `applicantDetails` (dietary info,
-  emergency contact, partyMembers for Couple/Family, etc.). After success,
-  initialize payment with `campRegistrationId`; Paystack amount uses the tier
-  price.
+  Submits a camp application for the logged-in user. `tierId` is required — the
+  camp must have at least one tier configured. Include `applicantDetails`
+  (dietary info, emergency contact, partyMembers for Couple/Family, etc.). After
+  success, initialize payment with `campRegistrationId`; Paystack amount uses the
+  selected tier price.
 url: "{{baseUrl}}/api/camps/{{campId}}/register"
 method: POST
 headers:
