@@ -27,7 +27,7 @@ export type WeekProgressRow = {
 
 export type ProgramProgressOverview = {
   totalWeeks: number;
-  /** Weeks with every module completed (weeks with zero modules count as complete). */
+  /** Weeks that have at least one module and every module in that week is completed. Empty weeks are excluded. */
   completedWeeks: number;
   /**
    * `ProgramWeek.order` of the earliest week that still has incomplete modules.
@@ -63,7 +63,7 @@ export function computeProgramProgressFromWeeks(
   const weekSummaries: WeekProgressRow[] = sortedWeeks.map((w) => {
     const moduleCount = w.modules.length;
     const modulesCompletedCount = w.modules.filter((m) => completedByModuleId.has(m.id)).length;
-    const isWeekComplete = moduleCount === 0 || modulesCompletedCount === moduleCount;
+    const isWeekComplete = moduleCount > 0 && modulesCompletedCount === moduleCount;
 
     return {
       weekId: w.id,
