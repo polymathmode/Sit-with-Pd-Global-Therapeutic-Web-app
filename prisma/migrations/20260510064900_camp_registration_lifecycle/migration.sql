@@ -46,3 +46,6 @@ CREATE INDEX "camp_registrations_campId_status_idx"
 -- CreateIndex: supports the expiry worker's scan of stale holds.
 CREATE INDEX "camp_registrations_status_paymentExpiresAt_idx"
   ON "camp_registrations"("status", "paymentExpiresAt");
+
+-- Align camp_registrations.updatedAt with Prisma @updatedAt (column added above).
+ALTER TABLE "camp_registrations" ALTER COLUMN "updatedAt" DROP DEFAULT;
