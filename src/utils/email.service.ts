@@ -1,6 +1,30 @@
 import { sendMail } from '../config/mailer';
 
-const FROM = `"${process.env.EMAIL_FROM_NAME}" <${process.env.EMAIL_FROM}>`;
+/** Matches `platform_settings.platformName` default; override with `EMAIL_FROM_NAME`. */
+const DEFAULT_EMAIL_BRAND = 'Sit With PD';
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+export function getEmailBrandName(): string {
+  const name = process.env.EMAIL_FROM_NAME?.trim();
+  return name && name.length > 0 ? name : DEFAULT_EMAIL_BRAND;
+}
+
+function transactionalFrom(): string {
+  const addr = process.env.EMAIL_FROM?.trim() ?? '';
+  return `"${getEmailBrandName()}" <${addr}>`;
+}
+
+function emailBrandSignOff(): string {
+  const brand = escapeHtml(getEmailBrandName());
+  return `<p style="margin-top:24px;color:#888;font-size:12px;">— ${brand}</p>`;
+}
 
 // ── Program Purchase Confirmation ─────────────────────────────────────────────
 export const sendProgramPurchaseEmail = async (
@@ -9,7 +33,7 @@ export const sendProgramPurchaseEmail = async (
   programTitle: string
 ) => {
   await sendMail({
-    from: FROM,
+    from: transactionalFrom(),
     to: email,
     subject: `You're enrolled in "${programTitle}"!`,
     html: `
@@ -24,6 +48,7 @@ export const sendProgramPurchaseEmail = async (
         <p style="margin-top:32px;color:#888;font-size:12px;">
           If you have any questions, reply to this email.
         </p>
+        ${emailBrandSignOff()}
       </div>
     `,
   });
@@ -38,7 +63,7 @@ export const sendCampRegistrationEmail = async (
 ) => {
   const formattedDate = campDate.toDateString();
   await sendMail({
-    from: FROM,
+    from: transactionalFrom(),
     to: email,
     subject: `Camp Registration Confirmed – ${campTitle}`,
     html: `
@@ -51,6 +76,7 @@ export const sendCampRegistrationEmail = async (
            style="background:#2a7c6f;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;display:inline-block;margin-top:12px;">
           View Booking
         </a>
+        ${emailBrandSignOff()}
       </div>
     `,
   });
@@ -66,7 +92,7 @@ export const sendConsultationPaymentLinkEmail = async (
 ) => {
   const minutes = Math.round(expiresInSeconds / 60);
   await sendMail({
-    from: FROM,
+    from: transactionalFrom(),
     to: email,
     subject: `Complete payment for your consultation – ${serviceTitle}`,
     html: `
@@ -81,6 +107,7 @@ export const sendConsultationPaymentLinkEmail = async (
         <p style="margin-top:24px;color:#888;font-size:12px;">
           This link is sent for your consultation booking. If you did not book a session, ignore this email.
         </p>
+        ${emailBrandSignOff()}
       </div>
     `,
   });
@@ -98,7 +125,7 @@ export const sendConsultationBookingEmail = async (
     : `<p>We will reach out to confirm your session time.</p>`;
 
   await sendMail({
-    from: FROM,
+    from: transactionalFrom(),
     to: email,
     subject: `Consultation Booking Received – ${serviceTitle}`,
     html: `
@@ -111,6 +138,7 @@ export const sendConsultationBookingEmail = async (
            style="background:#2a7c6f;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;display:inline-block;margin-top:12px;">
           View Booking
         </a>
+        ${emailBrandSignOff()}
       </div>
     `,
   });
@@ -124,7 +152,7 @@ export const sendEmailVerificationEmail = async (
 ) => {
   const verifyUrl = `${process.env.CLIENT_URL}/verify-email?token=${verificationToken}`;
   await sendMail({
-    from: FROM,
+    from: transactionalFrom(),
     to: email,
     subject: 'Verify your email address',
     html: `
@@ -139,6 +167,7 @@ export const sendEmailVerificationEmail = async (
         <p style="margin-top:24px;color:#888;font-size:12px;">
           If you didn't create an account, you can ignore this email.
         </p>
+        ${emailBrandSignOff()}
       </div>
     `,
   });
@@ -152,7 +181,7 @@ export const sendPasswordResetEmail = async (
 ) => {
   const resetUrl = `${process.env.CLIENT_URL}/reset-password?token=${resetToken}`;
   await sendMail({
-    from: FROM,
+    from: transactionalFrom(),
     to: email,
     subject: 'Reset Your Password',
     html: `
@@ -167,18 +196,11 @@ export const sendPasswordResetEmail = async (
         <p style="margin-top:24px;color:#888;font-size:12px;">
           If you didn't request this, you can safely ignore this email.
         </p>
+        ${emailBrandSignOff()}
       </div>
     `,
   });
 };
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
 
 /** Logged-in user → platform support (admin Settings `supportEmail`). */
 export const sendDashboardSupportRequestEmail = async (params: {
@@ -191,7 +213,7 @@ export const sendDashboardSupportRequestEmail = async (params: {
   const { to, userEmail, userName, subjectLine, message } = params;
   const safe = escapeHtml(message);
   await sendMail({
-    from: FROM,
+    from: transactionalFrom(),
     to,
     replyTo: userEmail,
     subject: subjectLine,
@@ -202,6 +224,7 @@ export const sendDashboardSupportRequestEmail = async (params: {
         <p><strong>Email:</strong> ${escapeHtml(userEmail)}</p>
         <hr style="border:none;border-top:1px solid #eee;margin:16px 0;" />
         <div style="white-space:pre-wrap;">${safe}</div>
+        ${emailBrandSignOff()}
       </div>
     `,
   });
@@ -221,7 +244,7 @@ export const sendDashboardFacilitatorMessageEmail = async (params: {
   const safe = escapeHtml(message);
   const fn = facilitatorName ? escapeHtml(facilitatorName) : 'Facilitator';
   await sendMail({
-    from: FROM,
+    from: transactionalFrom(),
     to,
     replyTo: userEmail,
     subject: subjectLine,
@@ -232,6 +255,7 @@ export const sendDashboardFacilitatorMessageEmail = async (params: {
         <p><strong>From:</strong> ${escapeHtml(userName)} &lt;${escapeHtml(userEmail)}&gt;</p>
         <hr style="border:none;border-top:1px solid #eee;margin:16px 0;" />
         <div style="white-space:pre-wrap;">${safe}</div>
+        ${emailBrandSignOff()}
       </div>
     `,
   });

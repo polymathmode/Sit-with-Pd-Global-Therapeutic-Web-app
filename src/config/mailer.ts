@@ -26,15 +26,25 @@ function getSmtpTransporter(): nodemailer.Transporter {
       'Email is not configured: set RESEND_API_KEY (recommended on Render) or SMTP_HOST and related SMTP variables.'
     );
   }
-  smtpTransporter = nodemailer.createTransport({
-    host,
-    port: Number(process.env.SMTP_PORT) || 465,
-    secure: true,
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
-    },
-  });
+  // smtpTransporter = nodemailer.createTransport({
+  //   host,
+  //   port: Number(process.env.SMTP_PORT) || 465,
+  //   secure: true,
+  //   auth: {
+  //     user: process.env.SMTP_USER,
+  //     pass: process.env.SMTP_PASS,
+  //   },
+  // });
+  const port = Number(process.env.SMTP_PORT) || 587;
+smtpTransporter = nodemailer.createTransport({
+  host,
+  port,
+  secure: port === 465,   // true only for 465/SSL, false for 587/STARTTLS
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+});
   return smtpTransporter;
 }
 
