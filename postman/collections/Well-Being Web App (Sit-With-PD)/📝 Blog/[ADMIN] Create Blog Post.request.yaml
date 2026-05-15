@@ -3,8 +3,11 @@ description: >-
   Admin only. `multipart/form-data`. Required: `title`, `excerpt`, `body`,
   `category` (`REFLECTION` | `WELLBEING` | `PERSONAL_GROWTH`). Optional: `slug`
   (auto from title if omitted), `readTimeMinutes` (default 5), `isPublished`
-  (default false), `coverImage` file, or `coverImageUrl` as text if the image
-  is already hosted.
+  (default false), `authorId` (`users.id` CUID — leave the `authorId` row
+  **disabled** so the field is omitted and the server attaches the authenticated
+  admin; enable and set a CUID to assign another user; empty string = no
+  author), `coverImage` file, or `coverImageUrl` as text if the image
+  is already hosted. Do not send a free-text `author` field — it is ignored.
 url: "{{baseUrl}}/api/admin/blog"
 method: POST
 headers:
@@ -35,6 +38,14 @@ body:
     - type: text
       key: isPublished
       value: "true"
+    - type: text
+      key: authorId
+      value: "{{userId}}"
+      description: >
+        Optional `users.id`. Row is **disabled** by default (field omitted →
+        server uses authenticated admin). After Login, enable and keep
+        `{{userId}}` to send an explicit id, or paste another user's CUID.
+      disabled: true
     - type: text
       key: coverImageUrl
       value: ""

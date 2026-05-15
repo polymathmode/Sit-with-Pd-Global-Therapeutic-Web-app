@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Well-Being Platform API",
-    "description": "Complete API collection for the Well-Being Web Platform. \n\n**Setup:**\n1. Set the `baseUrl` variable to your server (default: http://localhost:5000)\n2. Run **Register** or **Login** first — the token auto-saves to `authToken`\n3. All protected routes automatically use the saved token via collection-level auth\n4. **Blog:** **Create** / **Create (Draft)** test scripts save `blogPostId` and `blogSlug`. Admin update/delete and **Get by ID (admin)** use `blogPostId`. Public **Get by Slug** uses `blogSlug`.\n5. **Admin list GETs** (users, programs, blog, payments, consultations, testimonials admin, camp participants, Cal event types): use `?page=1&limit=20` (limit max 100). **Get All Users** accepts optional `?search=` (first name, last name, email). **Get All Consultations** accepts optional `?search=` (user name/email, service title) and optional `?status=` (`PENDING`, `PENDING_PAYMENT`, `CONFIRMED`, `CANCELLED`, `COMPLETED`). **Get All Programs** — public `GET /api/programs` and admin `GET /api/programs/admin/all` — accepts optional `?search=` (title, description) and optional `?category=` (`LEADERS`, `STUDENTS`, `PROFESSIONALS`). Public list is unpaginated `{ data }`; admin list is paginated `{ data, meta }`. **Newsletter:** `POST /api/newsletter/subscribe` (JSON: `email`, optional `source`) stores locally and syncs to Resend Contacts when `RESEND_API_KEY` is set; optional comma-separated `RESEND_NEWSLETTER_SEGMENT_IDS`. `GET /api/newsletter/unsubscribe?token=` — browser redirect to `CLIENT_URL` query flags; `?format=json` or `Accept: application/json` returns JSON. **Admin:** `GET /api/admin/newsletter/subscriptions` — paginated (`page`, `limit`), optional `search` (email/source), optional `status` (`all`|`active`|`unsubscribed`); excludes `unsubscribeToken` from rows. **Programmes (learner progress):** `GET /api/dashboard` includes `progress` on each purchased programme (`payment` SUCCESS). `GET /api/dashboard/programs/:id` merges `completedAt` on modules plus `progress`. `POST /api/dashboard/programs/:programId/modules/:moduleId/complete` records module completion when the learner finishes — idempotent.\n\n**Seeded Admin:**\n- Email: admin@wellbeing.com\n- Password: Admin@1234",
+    "description": "Complete API collection for the Well-Being Web Platform. \n\n**Setup:**\n1. Set the `baseUrl` variable to your server (default: http://localhost:5000)\n2. Run **Register** or **Login** first — the token auto-saves to `authToken`\n3. All protected routes automatically use the saved token via collection-level auth\n4. **Blog:** Optional multipart field **authorId** (`users.id`); omit on create to default author to the authenticated admin. Responses include **author** `{ id, firstName, lastName } | null`. **Login** / **Register** save **userId** when `data.user.id` is present. **Create** / **Create (Draft)** test scripts save `blogPostId` and `blogSlug`. Admin update/delete and **Get by ID (admin)** use `blogPostId`. Public **Get by Slug** uses `blogSlug`.\n5. **Admin list GETs** (users, programs, blog, payments, consultations, testimonials admin, camp participants, Cal event types): use `?page=1&limit=20` (limit max 100). **Get All Users** accepts optional `?search=` (first name, last name, email). **Get All Consultations** accepts optional `?search=` (user name/email, service title) and optional `?status=` (`PENDING`, `PENDING_PAYMENT`, `CONFIRMED`, `CANCELLED`, `COMPLETED`). **Get All Programs** — public `GET /api/programs` and admin `GET /api/programs/admin/all` — accepts optional `?search=` (title, description) and optional `?category=` (`LEADERS`, `STUDENTS`, `PROFESSIONALS`). Public list is unpaginated `{ data }`; admin list is paginated `{ data, meta }`. **Newsletter:** `POST /api/newsletter/subscribe` (JSON: `email`, optional `source`) stores locally and syncs to Resend Contacts when `RESEND_API_KEY` is set; optional comma-separated `RESEND_NEWSLETTER_SEGMENT_IDS`. `GET /api/newsletter/unsubscribe?token=` — browser redirect to `CLIENT_URL` query flags; `?format=json` or `Accept: application/json` returns JSON. **Admin:** `GET /api/admin/newsletter/subscriptions` — paginated (`page`, `limit`), optional `search` (email/source), optional `status` (`all`|`active`|`unsubscribed`); excludes `unsubscribeToken` from rows. **Programmes (learner progress):** `GET /api/dashboard` includes `progress` on each purchased programme (`payment` SUCCESS). `GET /api/dashboard/programs/:id` merges `completedAt` on modules plus `progress`. `POST /api/dashboard/programs/:programId/modules/:moduleId/complete` records module completion when the learner finishes — idempotent.\n\n**Seeded Admin:**\n- Email: admin@wellbeing.com\n- Password: Admin@1234",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -125,6 +125,9 @@
                   "const res = pm.response.json();",
                   "if (res.data && res.data.token) {",
                   "  pm.collectionVariables.set('authToken', res.data.token);",
+                  "  if (res.data.user && res.data.user.id) {",
+                  "    pm.collectionVariables.set('userId', res.data.user.id);",
+                  "  }",
                   "  console.log('Token saved:', res.data.token);",
                   "}"
                 ],
@@ -154,6 +157,9 @@
                   "const res = pm.response.json();",
                   "if (res.data && res.data.token) {",
                   "  pm.collectionVariables.set('authToken', res.data.token);",
+                  "  if (res.data.user && res.data.user.id) {",
+                  "    pm.collectionVariables.set('userId', res.data.user.id);",
+                  "  }",
                   "  console.log('Token saved:', res.data.token);",
                   "}"
                 ],
@@ -183,6 +189,9 @@
                   "const res = pm.response.json();",
                   "if (res.data && res.data.token) {",
                   "  pm.collectionVariables.set('authToken', res.data.token);",
+                  "  if (res.data.user && res.data.user.id) {",
+                  "    pm.collectionVariables.set('userId', res.data.user.id);",
+                  "  }",
                   "  console.log('Token saved:', res.data.token);",
                   "}"
                 ],
@@ -942,7 +951,7 @@
                 { "key": "limit", "value": "", "description": "max 100; default 20 when only page is set" }
               ]
             },
-            "description": "Public. Published posts only, newest first. Optional filters: category, search (or q). Omit page & limit to return the full list (no meta). With page or limit, response includes meta pagination."
+            "description": "Public. Published posts only, newest first; each row includes author { id, firstName, lastName } or null when unset. Optional filters: category, search (or q). Omit page & limit to return the full list (no meta). With page or limit, response includes meta pagination."
           }
         },
         {
@@ -965,7 +974,7 @@
             "auth": { "type": "noauth" },
             "method": "GET",
             "url": { "raw": "{{baseUrl}}/api/blog/{{blogSlug}}", "host": ["{{baseUrl}}"], "path": ["api", "blog", "{{blogSlug}}"] },
-            "description": "Public. One published post by slug (full body). 404 if draft. Uses collection variable blogSlug (set by Create requests)."
+            "description": "Public. One published post by slug (full body). Includes nested author when linked. 404 if draft. Uses collection variable blogSlug (set by Create requests)."
           }
         },
         {
@@ -986,7 +995,7 @@
                 { "key": "limit", "value": "20", "description": "max 100" }
               ]
             },
-            "description": "Admin only. Always paginated (default page=1, limit=20). Optional filters: status, category, search or q. Response: { data, meta }."
+            "description": "Admin only. Always paginated (default page=1, limit=20). Response: { data, meta }. Each row may include nested author when set."
           }
         },
         {
@@ -995,7 +1004,7 @@
             "method": "GET",
             "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
             "url": { "raw": "{{baseUrl}}/api/admin/blog/{{blogPostId}}", "host": ["{{baseUrl}}"], "path": ["api", "admin", "blog", "{{blogPostId}}"] },
-            "description": "Admin only. Single post by id (draft or published). Set blogPostId from List or from Create test script."
+            "description": "Admin only. Single post by id (draft or published), including nested author when set. Set blogPostId from List or from Create test script."
           }
         },
         {
@@ -1032,11 +1041,18 @@
                 { "key": "category", "value": "WELLBEING", "type": "text" },
                 { "key": "readTimeMinutes", "value": "5", "type": "text" },
                 { "key": "isPublished", "value": "true", "type": "text" },
+                {
+                  "key": "authorId",
+                  "value": "{{userId}}",
+                  "type": "text",
+                  "description": "Optional users.id; disabled = omit so server assigns authenticated admin",
+                  "disabled": true
+                },
                 { "key": "coverImageUrl", "value": "", "type": "text" },
                 { "key": "coverImage", "type": "file", "src": "", "description": "Optional cover image" }
               ]
             },
-            "description": "Admin only. Multipart. Required: title, excerpt, body, category. Optional slug, readTimeMinutes, isPublished, cover image or coverImageUrl."
+            "description": "Admin only. Multipart. Required: title, excerpt, body, category. Optional slug, readTimeMinutes, isPublished, authorId (users.id — omit/disabled row defaults author to authenticated admin), cover image or coverImageUrl. Free-text \"author\" is ignored."
           }
         },
         {
@@ -1072,11 +1088,18 @@
                 { "key": "category", "value": "PERSONAL_GROWTH", "type": "text" },
                 { "key": "readTimeMinutes", "value": "5", "type": "text" },
                 { "key": "isPublished", "value": "false", "type": "text" },
+                {
+                  "key": "authorId",
+                  "value": "{{userId}}",
+                  "type": "text",
+                  "description": "Optional users.id",
+                  "disabled": true
+                },
                 { "key": "coverImageUrl", "value": "", "type": "text" },
                 { "key": "coverImage", "type": "file", "src": "" }
               ]
             },
-            "description": "Admin only. isPublished false — visible in admin list only until you publish."
+            "description": "Admin only. isPublished false — visible in admin list only until you publish. Optional authorId as on Create Blog Post."
           }
         },
         {
@@ -1091,10 +1114,17 @@
                 { "key": "readTimeMinutes", "value": "7", "type": "text" },
                 { "key": "isPublished", "value": "true", "type": "text" },
                 { "key": "category", "value": "REFLECTION", "type": "text" },
+                {
+                  "key": "authorId",
+                  "value": "{{userId}}",
+                  "type": "text",
+                  "description": "Enable to set or clear (empty) linked author",
+                  "disabled": true
+                },
                 { "key": "coverImage", "type": "file", "src": "", "description": "Optional" }
               ]
             },
-            "description": "Admin only. Partial PATCH (minimal example). Add title, excerpt, body, slug parts with non-empty values to change them — empty strings error."
+            "description": "Admin only. Partial PATCH (minimal example). Optional authorId — enable and set CUID to attach, empty to clear."
           }
         },
         {
@@ -1113,10 +1143,17 @@
                 { "key": "category", "value": "WELLBEING", "type": "text" },
                 { "key": "readTimeMinutes", "value": "8", "type": "text" },
                 { "key": "isPublished", "value": "true", "type": "text" },
+                {
+                  "key": "authorId",
+                  "value": "{{userId}}",
+                  "type": "text",
+                  "disabled": true,
+                  "description": "Optional users.id"
+                },
                 { "key": "coverImage", "type": "file", "src": "" }
               ]
             },
-            "description": "Admin only. Full PATCH example with title, excerpt, body, slug."
+            "description": "Admin only. Full PATCH example with title, excerpt, body, slug. Optional authorId row (disabled by default)."
           }
         },
         {

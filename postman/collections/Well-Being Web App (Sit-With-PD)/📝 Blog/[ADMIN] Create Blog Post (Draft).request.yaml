@@ -3,7 +3,8 @@ description: >-
   Same as **Create Blog Post** but `isPublished` is false. The post will appear
   in **List All Blog Posts (admin)** but not in public `GET /api/blog` or
   `GET /api/blog/:slug` until you **Update** with `isPublished: true`. Uses a
-  distinct `slug` so it does not collide with the published sample.
+  distinct `slug` so it does not collide with the published sample. Optional
+  `authorId` — leave disabled to default to the authenticated admin.
 url: "{{baseUrl}}/api/admin/blog"
 method: POST
 headers:
@@ -32,6 +33,11 @@ body:
     - type: text
       key: isPublished
       value: "false"
+    - type: text
+      key: authorId
+      value: "{{userId}}"
+      description: Optional `users.id`; disabled = omit (default author = admin).
+      disabled: true
     - type: text
       key: coverImageUrl
       value: ""

@@ -1,6 +1,7 @@
 $kind: http-request
 description: >-
-  Public. **Published** posts only, newest first. Query params (all optional):
+  Public. **Published** posts only, newest first. Each item includes **`author`**
+  `{ id, firstName, lastName } | null` when populated. Query params (all optional):
   `category` (REFLECTION | WELLBEING | PERSONAL_GROWTH), `search` or `q`
   (case-insensitive on title/excerpt), `page` and `limit` (if either is set,
   response includes `meta`: total, page, limit, totalPages; omit both for full
