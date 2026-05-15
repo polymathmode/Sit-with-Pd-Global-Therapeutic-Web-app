@@ -56,6 +56,7 @@ function searchWhereForPublic(term: string): Prisma.BlogPostWhereInput {
     OR: [
       { title: { contains: term, mode: 'insensitive' } },
       { excerpt: { contains: term, mode: 'insensitive' } },
+      { authorDisplayName: { contains: term, mode: 'insensitive' } },
     ],
   };
 }
@@ -66,8 +67,44 @@ function searchWhereForAdmin(term: string): Prisma.BlogPostWhereInput {
       { title: { contains: term, mode: 'insensitive' } },
       { excerpt: { contains: term, mode: 'insensitive' } },
       { slug: { contains: term, mode: 'insensitive' } },
+      { authorDisplayName: { contains: term, mode: 'insensitive' } },
     ],
   };
+}
+
+const MAX_AUTHOR_BYLINE_LEN = 200;
+
+function pickAuthorBylineRaw(body: Record<string, unknown>): unknown {
+  if ('authorDisplayName' in body) return body.authorDisplayName;
+  if ('author' in body) return body.author;
+  return undefined;
+}
+
+function parseAuthorBylineValue(raw: unknown): string | null {
+  if (raw === undefined || raw === null || raw === '') return null;
+  const s = String(raw).trim();
+  if (!s) return null;
+  if (s.length > MAX_AUTHOR_BYLINE_LEN) {
+    throw new AppError(
+      `author / authorDisplayName must be at most ${MAX_AUTHOR_BYLINE_LEN} characters.`,
+      400
+    );
+  }
+  return s;
+}
+
+/** Create: omit both keys → null. */
+function parseAuthorBylineForCreate(body: Record<string, unknown>): string | null {
+  const raw = pickAuthorBylineRaw(body);
+  if (raw === undefined) return null;
+  return parseAuthorBylineValue(raw);
+}
+
+/** Update: omit both keys → leave unchanged. */
+function parseAuthorBylineForUpdate(body: Record<string, unknown>): string | null | undefined {
+  if (!('authorDisplayName' in body) && !('author' in body)) return undefined;
+  const raw = pickAuthorBylineRaw(body);
+  return parseAuthorBylineValue(raw);
 }
 
 const blogAuthorSelect = {
@@ -147,6 +184,7 @@ export const getPublishedBlogPosts = catchAsync(async (req: Request, res: Respon
     coverImageUrl: true,
     publishedAt: true,
     createdAt: true,
+    authorDisplayName: true,
     author: {
       select: blogAuthorSelect,
     },
@@ -293,6 +331,8 @@ export const createBlogPost = catchAsync(async (req: AuthRequest, res: Response)
 
   const authorId = await parseAuthorIdForCreate(req.body as Record<string, unknown>, adminId);
 
+  const authorDisplayName = parseAuthorBylineForCreate(req.body as Record<string, unknown>);
+
   try {
     const post = await prisma.blogPost.create({
       data: {
@@ -306,6 +346,7 @@ export const createBlogPost = catchAsync(async (req: AuthRequest, res: Response)
         isPublished: published,
         publishedAt: published ? now : null,
         authorId,
+        authorDisplayName,
       },
       include: {
         author: { select: blogAuthorSelect },
@@ -382,6 +423,11 @@ export const updateBlogPost = catchAsync(async (req: AuthRequest, res: Response)
     data.coverImageUrl = nextCover;
   }
 
+  const nextAuthorByline = parseAuthorBylineForUpdate(req.body as Record<string, unknown>);
+  if (nextAuthorByline !== undefined) {
+    data.authorDisplayName = nextAuthorByline;
+  }
+
   const nextAuthorId = await parseAuthorIdForUpdate(req.body as Record<string, unknown>);
   if (nextAuthorId !== undefined) {
     data.author =
@@ -390,7 +436,7 @@ export const updateBlogPost = catchAsync(async (req: AuthRequest, res: Response)
 
   if (Object.keys(data).length === 0) {
     throw new AppError(
-      'No fields to update. Send at least one of title, excerpt, body, slug, category, readTimeMinutes, isPublished, authorId, coverImage, coverImageUrl.',
+      'No fields to update. Send at least one of title, excerpt, body, slug, category, readTimeMinutes, isPublished, authorId, author, authorDisplayName, coverImage, coverImageUrl.',
       400
     );
   }

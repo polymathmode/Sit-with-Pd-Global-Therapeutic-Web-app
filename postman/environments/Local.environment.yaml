@@ -1,6 +1,12 @@
+owner: "28053693"
+team: "14382790"
+lastUpdatedBy: "28053693"
+lastRevision: 1775552019000
 name: Local
+color: 240
 values:
   - key: baseUrl
     value: ""
     enabled: true
-color: 240
+createdAt: 2026-04-07T08:53:16.000Z
+updatedAt: 2026-04-07T08:53:39.000Z

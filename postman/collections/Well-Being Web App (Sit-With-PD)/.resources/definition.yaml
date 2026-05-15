@@ -19,9 +19,11 @@ description: >-
   by Slug** uses `blogSlug`. Two public list requests cover unfiltered and
   `?category=` filters. Blog payloads may include **`authorId`** (`users.id` CUID).
   Omit it on **create** to default the author to the authenticated admin.
-  Responses include nested **`author`** `{ id, firstName, lastName }` or
-  `null` when unset. **`userId`** is set from Login / Register when responses
-  include `data.user.id` (use for testing `authorId` in form-data).
+  Optional **`author`** / **`authorDisplayName`** stores the public byline string.
+  Responses include **`authorDisplayName`**, nested **`author`** `{ id, firstName,
+  lastName }` or null, and **`authorId`**. UI: show `authorDisplayName` when set,
+  else compose `author.firstName` + `author.lastName`, else a brand fallback.
+  **`userId`** is set from Login / Register when responses include `data.user.id`.
 
   5. **Admin list GETs** use `?page=&limit=` (see each request). Typical
   response: `data` array + `meta` { total, page, limit, totalPages }.
