@@ -28,6 +28,7 @@
     { "key": "serviceId", "value": "", "type": "string" },
     { "key": "consultationId", "value": "", "type": "string" },
     { "key": "paymentRef", "value": "", "type": "string" },
+    { "key": "flutterwaveWebhookHash", "value": "", "type": "string" },
     { "key": "userId", "value": "", "type": "string" },
     { "key": "verifyToken", "value": "", "type": "string" },
     { "key": "blogPostId", "value": "", "type": "string" },
@@ -1351,9 +1352,41 @@
             "url": { "raw": "{{baseUrl}}/api/payments/initialize", "host": ["{{baseUrl}}"], "path": ["api", "payments", "initialize"] },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"type\": \"PROGRAM\",\n  \"itemId\": \"{{programId}}\"\n}"
+              "raw": "{\n  \"type\": \"PROGRAM\",\n  \"itemId\": \"{{programId}}\",\n  \"provider\": \"PAYSTACK\",\n  \"currency\": \"NGN\"\n}"
             },
-            "description": "Initializes a Paystack payment for a program purchase. Returns an authorizationUrl — redirect the user to this URL to complete payment."
+            "description": "Initializes a payment for a program purchase. Returns an authorizationUrl — redirect the user to this URL to complete payment.\n\nOptional body fields:\n- provider — 'PAYSTACK' (default) or 'FLUTTERWAVE'.\n- currency — ISO code (NGN, USD, GBP, ...). Defaults to PAYMENT_DEFAULT_CURRENCY (NGN).\n\nResponse includes provider, currency, authorizationUrl, and reference."
+          }
+        },
+        {
+          "name": "[USER] Initialize Payment (Flutterwave) — Program",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.data && res.data.reference) {",
+                  "  pm.collectionVariables.set('paymentRef', res.data.reference);",
+                  "  console.log('Flutterwave tx_ref saved:', res.data.reference);",
+                  "  console.log('Redirect user to:', res.data.authorizationUrl);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/payments/initialize", "host": ["{{baseUrl}}"], "path": ["api", "payments", "initialize"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"PROGRAM\",\n  \"itemId\": \"{{programId}}\",\n  \"provider\": \"FLUTTERWAVE\",\n  \"currency\": \"USD\"\n}"
+            },
+            "description": "Flutterwave variant of the program init call — use when Paystack rejects an international card. Server must have FLUTTERWAVE_SECRET_KEY and FLUTTERWAVE_WEBHOOK_HASH set."
           }
         },
         {
@@ -1367,9 +1400,25 @@
             "url": { "raw": "{{baseUrl}}/api/payments/initialize", "host": ["{{baseUrl}}"], "path": ["api", "payments", "initialize"] },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"type\": \"CAMP\",\n  \"itemId\": \"{{campRegistrationId}}\"\n}"
+              "raw": "{\n  \"type\": \"CAMP\",\n  \"itemId\": \"{{campRegistrationId}}\",\n  \"provider\": \"PAYSTACK\",\n  \"currency\": \"NGN\"\n}"
             },
-            "description": "Initializes Paystack for CAMP. itemId = camp registration id. Only allowed while registration is payable (PENDING_PAYMENT with future paymentExpiresAt).\n\n400: You have already paid for this application. OR This application has expired. Please re-apply to obtain a new payment window.\n\nStale PENDING Paystack sessions are detached (FAILED + null FK) before creating the new Payment row."
+            "description": "Initializes a payment for CAMP. itemId = camp registration id. Only allowed while registration is payable (PENDING_PAYMENT with future paymentExpiresAt).\n\nOptional: provider (PAYSTACK | FLUTTERWAVE), currency (ISO).\n\n400: You have already paid for this application. OR This application has expired. Please re-apply to obtain a new payment window.\n\nStale PENDING sessions are detached (FAILED + null FK) before creating the new Payment row."
+          }
+        },
+        {
+          "name": "[USER] Initialize Payment (Flutterwave) — Camp",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/payments/initialize", "host": ["{{baseUrl}}"], "path": ["api", "payments", "initialize"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"CAMP\",\n  \"itemId\": \"{{campRegistrationId}}\",\n  \"provider\": \"FLUTTERWAVE\",\n  \"currency\": \"USD\"\n}"
+            },
+            "description": "Flutterwave variant of camp init. Same lifecycle / 400 rules as the Paystack variant. Use non-NGN currency only when pricing/cards are international."
           }
         },
         {
@@ -1383,9 +1432,25 @@
             "url": { "raw": "{{baseUrl}}/api/payments/initialize", "host": ["{{baseUrl}}"], "path": ["api", "payments", "initialize"] },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"type\": \"CONSULTATION\",\n  \"itemId\": \"{{consultationId}}\"\n}"
+              "raw": "{\n  \"type\": \"CONSULTATION\",\n  \"itemId\": \"{{consultationId}}\",\n  \"provider\": \"PAYSTACK\",\n  \"currency\": \"NGN\"\n}"
             },
-            "description": "Initializes a Paystack payment for a consultation booking."
+            "description": "Initializes a payment for a consultation booking.\n\nOptional: provider (PAYSTACK | FLUTTERWAVE), currency (ISO).\n\nCal.com → consultation auto-creates the payment using CONSULTATION_PAYMENT_PROVIDER env (PAYSTACK if unset)."
+          }
+        },
+        {
+          "name": "[USER] Initialize Payment (Flutterwave) — Consultation",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/payments/initialize", "host": ["{{baseUrl}}"], "path": ["api", "payments", "initialize"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"CONSULTATION\",\n  \"itemId\": \"{{consultationId}}\",\n  \"provider\": \"FLUTTERWAVE\",\n  \"currency\": \"USD\"\n}"
+            },
+            "description": "Flutterwave variant of the consultation init call. Useful for international clients paying for a session."
           }
         },
         {
@@ -1428,6 +1493,22 @@
               "raw": "{\n  \"event\": \"charge.success\",\n  \"data\": {\n    \"reference\": \"{{paymentRef}}\",\n    \"amount\": 2500000,\n    \"status\": \"success\",\n    \"metadata\": {\n      \"userId\": \"USER_ID_HERE\",\n      \"type\": \"PROGRAM\",\n      \"itemId\": \"PROGRAM_ID_HERE\"\n    },\n    \"customer\": {\n      \"email\": \"john@example.com\"\n    }\n  }\n}"
             },
             "description": "⚠️ For local testing only. In production, Paystack calls this automatically. Use Paystack CLI (paystack listen) to forward real webhook events to localhost."
+          }
+        },
+        {
+          "name": "[WEBHOOK] Flutterwave Webhook (simulate)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "verif-hash", "value": "{{flutterwaveWebhookHash}}", "description": "Must equal FLUTTERWAVE_WEBHOOK_HASH on the server. Set in Flutterwave dashboard → Settings → Webhooks." }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/payments/flutterwave-webhook", "host": ["{{baseUrl}}"], "path": ["api", "payments", "flutterwave-webhook"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event\": \"charge.completed\",\n  \"data\": {\n    \"id\": 285959875,\n    \"tx_ref\": \"{{paymentRef}}\",\n    \"flw_ref\": \"FLW-MOCK-REF\",\n    \"amount\": 25000,\n    \"currency\": \"NGN\",\n    \"status\": \"successful\",\n    \"customer\": {\n      \"email\": \"john@example.com\"\n    },\n    \"meta\": {\n      \"userId\": \"USER_ID_HERE\",\n      \"type\": \"PROGRAM\",\n      \"itemId\": \"PROGRAM_ID_HERE\"\n    }\n  }\n}"
+            },
+            "description": "⚠️ For local testing only. In production Flutterwave calls this automatically. The handler is idempotent — Flutterwave retries are safe."
           }
         }
       ]

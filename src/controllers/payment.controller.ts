@@ -1,19 +1,48 @@
 import { Request, Response } from 'express';
 import crypto from 'crypto';
-import { CampRegistrationStatus } from '@prisma/client';
+import { CampRegistrationStatus, PaymentProvider } from '@prisma/client';
 import prisma from '../config/prisma';
 import { buildMeta, parseAdminPagination } from '../lib/pagination';
 import { catchAsync, AppError } from '../middleware/error.middleware';
-import { AuthRequest, PaystackEvent } from '../types';
+import { AuthRequest, FlutterwaveWebhookEvent, PaystackEvent } from '../types';
 import {
   sendProgramPurchaseEmail,
   sendCampRegistrationEmail,
   sendConsultationBookingEmail,
 } from '../utils/email.service';
 import { isRegistrationPayable } from '../services/campInventory.service';
+import {
+  initializeFlutterwavePayment,
+  isValidFlutterwaveWebhookSignature,
+} from '../lib/flutterwaveIntegration';
 
 const PAYSTACK_SECRET = process.env.PAYSTACK_SECRET_KEY!;
 const PAYSTACK_BASE = 'https://api.paystack.co';
+
+const DEFAULT_CURRENCY = (process.env.PAYMENT_DEFAULT_CURRENCY?.trim() || 'NGN').toUpperCase();
+
+function parseProvider(raw: unknown): PaymentProvider {
+  if (raw === undefined || raw === null || raw === '') return PaymentProvider.PAYSTACK;
+  const s = String(raw).trim().toUpperCase();
+  if (s === 'PAYSTACK') return PaymentProvider.PAYSTACK;
+  if (s === 'FLUTTERWAVE' || s === 'FLW') return PaymentProvider.FLUTTERWAVE;
+  throw new AppError('provider must be PAYSTACK or FLUTTERWAVE.', 400);
+}
+
+function parseCurrency(raw: unknown): string {
+  if (raw === undefined || raw === null || raw === '') return DEFAULT_CURRENCY;
+  if (typeof raw !== 'string') throw new AppError('currency must be a 3-letter ISO code string.', 400);
+  const s = raw.trim().toUpperCase();
+  if (!/^[A-Z]{3}$/.test(s)) {
+    throw new AppError('currency must be a 3-letter ISO code (e.g. NGN, USD, GBP).', 400);
+  }
+  return s;
+}
+
+/** tx_ref Flutterwave will return on webhook. Prefixed for traceability. */
+function generateFlutterwaveTxRef(userId: string): string {
+  return `flw_${userId.slice(0, 8)}_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+}
 
 // ── Helper: Call Paystack API ─────────────────────────────────────────────────
 const paystackRequest = async (endpoint: string, method = 'GET', body?: object) => {
@@ -30,11 +59,18 @@ const paystackRequest = async (endpoint: string, method = 'GET', body?: object) 
 
 // ── Initialize Payment ────────────────────────────────────────────────────────
 // POST /api/payments/initialize
-// Body: { type: 'PROGRAM' | 'CAMP' | 'CONSULTATION', itemId: string }
+// Body: {
+//   type: 'PROGRAM' | 'CAMP' | 'CONSULTATION',
+//   itemId: string,
+//   provider?: 'PAYSTACK' | 'FLUTTERWAVE',  // default PAYSTACK
+//   currency?: 'NGN' | 'USD' | ...           // ISO code; default PAYMENT_DEFAULT_CURRENCY or NGN
+// }
 // CAMP: amount comes from the registration's CampTier only.
 export const initializePayment = catchAsync(async (req: AuthRequest, res: Response) => {
   const userId = req.user!.id;
   const { type, itemId } = req.body;
+  const provider = parseProvider(req.body?.provider);
+  const currency = parseCurrency(req.body?.currency);
 
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) throw new AppError('User not found.', 404);
@@ -117,26 +153,62 @@ export const initializePayment = catchAsync(async (req: AuthRequest, res: Respon
     description = `Consultation: ${consultation.service.title}`;
   }
 
-  // Paystack expects amount in kobo (multiply by 100)
-  const paystackResponse = (await paystackRequest('/transaction/initialize', 'POST', {
-    email: user.email,
-    amount: amount * 100,
-    metadata: { userId, type, itemId },
-    callback_url: `${process.env.CLIENT_URL}/payment/verify`,
-  })) as { status: boolean; data: { reference: string; authorization_url: string } };
+  let authorizationUrl: string;
+  let reference: string;
 
-  if (!paystackResponse.status) {
-    throw new AppError('Could not initialize payment. Please try again.', 500);
+  if (provider === PaymentProvider.PAYSTACK) {
+    // Paystack expects amount in kobo (multiply by 100)
+    const paystackResponse = (await paystackRequest('/transaction/initialize', 'POST', {
+      email: user.email,
+      amount: amount * 100,
+      currency,
+      metadata: { userId, type, itemId },
+      callback_url: `${process.env.CLIENT_URL}/payment/verify`,
+    })) as { status: boolean; data: { reference: string; authorization_url: string } };
+
+    if (!paystackResponse.status) {
+      throw new AppError('Could not initialize payment. Please try again.', 500);
+    }
+
+    authorizationUrl = paystackResponse.data.authorization_url;
+    reference = paystackResponse.data.reference;
+  } else {
+    // Flutterwave — full units (no kobo conversion). We generate tx_ref and store
+    // it on the Payment row; the webhook echoes it back under data.tx_ref.
+    const txRef = generateFlutterwaveTxRef(userId);
+    const fullName = `${user.firstName} ${user.lastName}`.trim() || undefined;
+
+    const flwResponse = await initializeFlutterwavePayment({
+      txRef,
+      amount,
+      currency,
+      email: user.email,
+      fullName,
+      redirectUrl: `${process.env.CLIENT_URL}/payment/verify`,
+      meta: { userId, type, itemId },
+    });
+
+    if (flwResponse.status !== 'success' || !flwResponse.data?.link) {
+      throw new AppError(
+        flwResponse.message || 'Could not initialize payment. Please try again.',
+        500
+      );
+    }
+
+    authorizationUrl = flwResponse.data.link;
+    reference = txRef;
   }
 
-  // Create a PENDING payment record
+  // Create a PENDING payment record (unique on `paystackRef` regardless of provider)
   await prisma.payment.create({
     data: {
       userId,
       type,
       amount,
+      currency,
+      provider,
       status: 'PENDING',
-      paystackRef: paystackResponse.data.reference,
+      paystackRef: reference,
       ...(type === 'CAMP' && { campRegistrationId: itemId }),
       ...(type === 'CONSULTATION' && { consultationId: itemId }),
     },
@@ -146,12 +218,142 @@ export const initializePayment = catchAsync(async (req: AuthRequest, res: Respon
     success: true,
     message: 'Payment initialized.',
     data: {
-      authorizationUrl: paystackResponse.data.authorization_url,
-      reference: paystackResponse.data.reference,
+      provider,
+      currency,
+      authorizationUrl,
+      reference,
       description,
     },
   });
 });
+
+// ── Shared fulfilment (Paystack + Flutterwave) ───────────────────────────────
+// Both webhooks share the same downstream logic: mark the Payment row SUCCESS,
+// then fulfil based on type (program purchase, camp registration confirm, or
+// consultation confirm). Differences live above in signature verification and
+// in how each provider names the reference / event time.
+interface FulfilmentInput {
+  reference: string;
+  userId: string;
+  type: 'PROGRAM' | 'CAMP' | 'CONSULTATION';
+  itemId: string;
+  provider: PaymentProvider;
+  rawProviderResponse: object;
+  // When the gateway recorded the successful charge (used by camp lifecycle).
+  paidAt: Date;
+  logTag: '[paystack-webhook]' | '[flutterwave-webhook]';
+}
+
+async function fulfilSuccessfulPayment(input: FulfilmentInput): Promise<void> {
+  const { reference, userId, type, itemId, provider, rawProviderResponse, paidAt, logTag } = input;
+
+  // 1. Mark payment row SUCCESS — idempotent: matching paystackRef is unique.
+  const payment = await prisma.payment.update({
+    where: { paystackRef: reference },
+    data: { status: 'SUCCESS', paystackResponse: rawProviderResponse, provider },
+  });
+
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) return;
+
+  if (type === 'PROGRAM') {
+    await prisma.purchase.create({
+      data: { userId, programId: itemId, payment: { connect: { id: payment.id } } },
+    });
+
+    const program = await prisma.program.findUnique({ where: { id: itemId } });
+    if (program) {
+      await sendProgramPurchaseEmail(user.email, user.firstName, program.title);
+    }
+    return;
+  }
+
+  if (type === 'CAMP') {
+    const registration = await prisma.campRegistration.findUnique({
+      where: { id: itemId },
+      include: { camp: true },
+    });
+
+    if (!registration) {
+      console.warn(`${logTag} CAMP charge.success: registration ${itemId} not found.`);
+      return;
+    }
+    if (registration.userId !== userId) {
+      console.warn(
+        `${logTag} CAMP charge.success: registration ${itemId} userId mismatch ` +
+          `(reg=${registration.userId}, metadata=${userId}).`
+      );
+      return;
+    }
+    if (registration.status === CampRegistrationStatus.CONFIRMED) {
+      // Idempotent: already promoted, almost certainly a webhook retry.
+      return;
+    }
+
+    if (isRegistrationPayable(registration, paidAt)) {
+      const promoted = await prisma.campRegistration.updateMany({
+        where: { id: registration.id, status: CampRegistrationStatus.PENDING_PAYMENT },
+        data: { status: CampRegistrationStatus.CONFIRMED, paymentExpiresAt: null },
+      });
+      if (promoted.count === 1) {
+        await sendCampRegistrationEmail(
+          user.email,
+          user.firstName,
+          registration.camp.title,
+          registration.camp.startDate
+        );
+      }
+    } else {
+      // Money was taken after the hold elapsed — flag for manual refund and
+      // DO NOT confirm the seat.
+      await prisma.payment.update({
+        where: { id: payment.id },
+        data: {
+          paystackResponse: {
+            ...rawProviderResponse,
+            _refundRequired: true,
+            _refundReason: 'Registration expired before charge.success arrived.',
+          } as object,
+        },
+      });
+      console.error(
+        `${logTag} CAMP refund-required: charge.success arrived for non-payable registration.`,
+        JSON.stringify({
+          paymentId: payment.id,
+          reference,
+          registrationId: registration.id,
+          userId,
+          registrationStatus: registration.status,
+          registrationExpiresAt: registration.paymentExpiresAt,
+          paidAt: paidAt.toISOString(),
+        })
+      );
+    }
+    return;
+  }
+
+  if (type === 'CONSULTATION') {
+    const consultation = await prisma.consultation.findUnique({
+      where: { id: itemId },
+      include: { service: true },
+    });
+    if (
+      consultation &&
+      (consultation.status === 'PENDING_PAYMENT' || consultation.status === 'PENDING')
+    ) {
+      await prisma.consultation.update({
+        where: { id: consultation.id },
+        data: { status: 'CONFIRMED' },
+      });
+      await sendConsultationBookingEmail(
+        user.email,
+        user.firstName,
+        consultation.service.title,
+        consultation.confirmedDate ?? consultation.preferredDate ?? undefined
+      );
+    }
+  }
+}
 
 // ── Paystack Webhook ──────────────────────────────────────────────────────────
 // POST /api/payments/webhook
@@ -180,126 +382,76 @@ export const paystackWebhook = async (req: Request, res: Response) => {
   const { reference, metadata } = event.data;
   const { userId, type, itemId } = metadata;
 
+  // Time-of-truth for camp payability is when Paystack actually charged the
+  // card, not when the webhook reached us. Falls back to receipt time.
+  const paidAtRaw = (event.data as Record<string, unknown>).paid_at;
+  const paidAt = typeof paidAtRaw === 'string' ? new Date(paidAtRaw) : new Date();
+
   try {
-    // 3. Update payment record to SUCCESS
-    const payment = await prisma.payment.update({
-      where: { paystackRef: reference },
-      data: { status: 'SUCCESS', paystackResponse: event.data as object },
+    await fulfilSuccessfulPayment({
+      reference,
+      userId,
+      type,
+      itemId,
+      provider: PaymentProvider.PAYSTACK,
+      rawProviderResponse: event.data as object,
+      paidAt,
+      logTag: '[paystack-webhook]',
     });
-
-    const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user) return res.sendStatus(200);
-
-    // 4. Fulfill the purchase based on type
-    if (type === 'PROGRAM') {
-      // Create purchase record giving user access
-      await prisma.purchase.create({
-        data: { userId, programId: itemId, payment: { connect: { id: payment.id } } },
-      });
-
-      const program = await prisma.program.findUnique({ where: { id: itemId } });
-      if (program) {
-        await sendProgramPurchaseEmail(user.email, user.firstName, program.title);
-      }
-
-    } else if (type === 'CAMP') {
-      const registration = await prisma.campRegistration.findUnique({
-        where: { id: itemId },
-        include: { camp: true },
-      });
-
-      if (!registration) {
-        console.warn(
-          `[paystack-webhook] CAMP charge.success: registration ${itemId} not found.`
-        );
-      } else if (registration.userId !== userId) {
-        console.warn(
-          `[paystack-webhook] CAMP charge.success: registration ${itemId} userId mismatch ` +
-            `(reg=${registration.userId}, metadata=${userId}).`
-        );
-      } else if (registration.status === CampRegistrationStatus.CONFIRMED) {
-        // Idempotent: already promoted, almost certainly a webhook retry.
-      } else {
-        // Time-of-truth for the payability check is when Paystack actually
-        // charged the card, not when the webhook reached us. This is fairer
-        // when delivery is delayed past the 60-minute hold but the charge
-        // itself happened in time. Falls back to receipt time if absent.
-        const paidAtRaw = (event.data as Record<string, unknown>).paid_at;
-        const eventTime =
-          typeof paidAtRaw === 'string' ? new Date(paidAtRaw) : new Date();
-
-        if (isRegistrationPayable(registration, eventTime)) {
-          // Atomic, race-safe promotion: only the call that finds the row in
-          // PENDING_PAYMENT will flip it. Concurrent webhook deliveries see
-          // count === 0 and skip the email.
-          const promoted = await prisma.campRegistration.updateMany({
-            where: { id: registration.id, status: CampRegistrationStatus.PENDING_PAYMENT },
-            data: { status: CampRegistrationStatus.CONFIRMED, paymentExpiresAt: null },
-          });
-          if (promoted.count === 1) {
-            await sendCampRegistrationEmail(
-              user.email,
-              user.firstName,
-              registration.camp.title,
-              registration.camp.startDate
-            );
-          }
-        } else {
-          // Charge succeeded after the registration's hold elapsed. Money was
-          // taken — flag for a manual refund and DO NOT confirm the seat.
-          // Two channels until a Payment.refundRequired column exists:
-          //   1. Marker inside Payment.paystackResponse for admin queries.
-          //   2. Structured console.error for Render log alerting.
-          await prisma.payment.update({
-            where: { id: payment.id },
-            data: {
-              paystackResponse: {
-                ...(event.data as object),
-                _refundRequired: true,
-                _refundReason:
-                  'Registration expired before charge.success arrived.',
-              } as object,
-            },
-          });
-          console.error(
-            '[paystack-webhook] CAMP refund-required: charge.success arrived for non-payable registration.',
-            JSON.stringify({
-              paymentId: payment.id,
-              paystackRef: reference,
-              registrationId: registration.id,
-              userId,
-              registrationStatus: registration.status,
-              registrationExpiresAt: registration.paymentExpiresAt,
-              eventTime: eventTime.toISOString(),
-            })
-          );
-        }
-      }
-
-    } else if (type === 'CONSULTATION') {
-      const consultation = await prisma.consultation.findUnique({
-        where: { id: itemId },
-        include: { service: true },
-      });
-      if (
-        consultation &&
-        (consultation.status === 'PENDING_PAYMENT' || consultation.status === 'PENDING')
-      ) {
-        await prisma.consultation.update({
-          where: { id: consultation.id },
-          data: { status: 'CONFIRMED' },
-        });
-        await sendConsultationBookingEmail(
-          user.email,
-          user.firstName,
-          consultation.service.title,
-          consultation.confirmedDate ?? consultation.preferredDate ?? undefined
-        );
-      }
-    }
-
   } catch (err) {
     console.error('Webhook processing error:', err);
+  }
+
+  res.sendStatus(200);
+};
+
+// ── Flutterwave Webhook ───────────────────────────────────────────────────────
+// POST /api/payments/flutterwave-webhook
+// Verified by static `verif-hash` header (set in Flutterwave dashboard).
+export const flutterwaveWebhook = async (req: Request, res: Response) => {
+  if (!isValidFlutterwaveWebhookSignature(req.headers['verif-hash'])) {
+    return res.status(400).json({ message: 'Invalid signature.' });
+  }
+
+  // Mounted with express.raw — body is a Buffer; parse JSON ourselves.
+  let event: FlutterwaveWebhookEvent;
+  try {
+    const raw = Buffer.isBuffer(req.body) ? req.body : Buffer.from(JSON.stringify(req.body), 'utf8');
+    event = JSON.parse(raw.toString('utf8')) as FlutterwaveWebhookEvent;
+  } catch {
+    return res.status(400).json({ message: 'Invalid JSON.' });
+  }
+
+  // Only act on completed successful charges.
+  if (event.event !== 'charge.completed' || event.data?.status !== 'successful') {
+    return res.sendStatus(200);
+  }
+
+  const { tx_ref: reference, meta } = event.data;
+  if (!reference || !meta?.userId || !meta?.type || !meta?.itemId) {
+    console.warn('[flutterwave-webhook] missing tx_ref or meta on completed event.');
+    return res.sendStatus(200);
+  }
+
+  // Use Flutterwave's reported transaction time when present.
+  const createdAtRaw =
+    (event.data as Record<string, unknown>).created_at ??
+    (event.data as Record<string, unknown>).processor_response_at;
+  const paidAt = typeof createdAtRaw === 'string' ? new Date(createdAtRaw) : new Date();
+
+  try {
+    await fulfilSuccessfulPayment({
+      reference,
+      userId: meta.userId,
+      type: meta.type,
+      itemId: meta.itemId,
+      provider: PaymentProvider.FLUTTERWAVE,
+      rawProviderResponse: event.data as object,
+      paidAt,
+      logTag: '[flutterwave-webhook]',
+    });
+  } catch (err) {
+    console.error('Flutterwave webhook processing error:', err);
   }
 
   res.sendStatus(200);

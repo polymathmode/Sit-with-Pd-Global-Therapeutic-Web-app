@@ -1,13 +1,20 @@
 $kind: http-request
 name: "[USER] Initialize Payment — Camp"
 description: >-
-  Initializes Paystack for a camp application. `itemId` must be the **camp
+  Initializes a payment for a camp application. `itemId` must be the **camp
   registration id** (from POST `/api/camps/:id/register` or GET
   `/api/camps/:id/my-registration`). Amount comes only from the tier linked to
   that registration.
 
   Allowed only while `isRegistrationPayable` / registration lifecycle permits
   checkout (`PENDING_PAYMENT` with a future `paymentExpiresAt`).
+
+  **Optional body fields:**
+
+  - `provider` — `"PAYSTACK"` (default) or `"FLUTTERWAVE"`.
+
+  - `currency` — ISO code (e.g. `"NGN"`, `"USD"`). Defaults to
+    `PAYMENT_DEFAULT_CURRENCY` (NGN).
 
   **400 rejection cases:**
 
@@ -33,6 +40,8 @@ body:
   content: |-
     {
       "type": "CAMP",
-      "itemId": "cmo9tccjc00011465auhr5f3m"
+      "itemId": "cmo9tccjc00011465auhr5f3m",
+      "provider": "PAYSTACK",
+      "currency": "NGN"
     }
 order: 2000

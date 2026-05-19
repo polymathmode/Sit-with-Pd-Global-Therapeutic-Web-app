@@ -1,5 +1,13 @@
 $kind: http-request
-description: Initializes a Paystack payment for a consultation booking.
+description: |-
+  Initializes a payment for a consultation booking.
+
+  Optional body fields:
+  - `provider` — "PAYSTACK" (default) or "FLUTTERWAVE".
+  - `currency` — ISO code (e.g. "NGN", "USD"). Defaults to NGN.
+
+  Note: when a Cal.com booking auto-creates the payment, the server picks the
+  provider from `CONSULTATION_PAYMENT_PROVIDER` env (PAYSTACK if unset).
 url: "{{baseUrl}}/api/payments/initialize"
 method: POST
 headers:
@@ -10,6 +18,8 @@ body:
   content: |-
     {
       "type": "CONSULTATION",
-      "itemId": "{{consultationId}}"
+      "itemId": "{{consultationId}}",
+      "provider": "PAYSTACK",
+      "currency": "NGN"
     }
 order: 3000

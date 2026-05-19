@@ -18,6 +18,13 @@ enum PaymentStatus {
   FAILED
 }
 
+// Gateway used to process a Payment row. PAYSTACK is the historical default
+// (back-compat for rows created before Flutterwave was wired in).
+enum PaymentProvider {
+  PAYSTACK
+  FLUTTERWAVE
+}
+
 enum PaymentType {
   PROGRAM
   CAMP
@@ -399,19 +406,23 @@ model Consultation {
 }
 
 model Payment {
-  id                 String        @id @default(cuid())
+  id                 String          @id @default(cuid())
   userId             String
   type               PaymentType
   amount             Float
-  currency           String        @default("NGN")
-  status             PaymentStatus @default(PENDING)
-  paystackRef        String        @unique
+  currency           String          @default("NGN")
+  status             PaymentStatus   @default(PENDING)
+  provider           PaymentProvider @default(PAYSTACK)
+  // Provider-specific unique reference. Paystack: their generated reference.
+  // Flutterwave: the `tx_ref` we generate and pass on init. Column name kept
+  // for migration compatibility — treat as a generic provider reference.
+  paystackRef        String          @unique
   paystackResponse   Json?
-  purchaseId         String?       @unique
-  campRegistrationId String?       @unique
-  consultationId     String?       @unique
-  createdAt          DateTime      @default(now())
-  updatedAt          DateTime      @updatedAt
+  purchaseId         String?         @unique
+  campRegistrationId String?         @unique
+  consultationId     String?         @unique
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
 
   user             User              @relation(fields: [userId], references: [id])
   purchase         Purchase?         @relation(fields: [purchaseId], references: [id])

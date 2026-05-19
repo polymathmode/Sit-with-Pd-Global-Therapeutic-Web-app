@@ -1,5 +1,15 @@
 $kind: http-request
-description: Initializes a Paystack payment for a program purchase. Returns an authorizationUrl — redirect the user to this URL to complete payment.
+description: |-
+  Initializes a payment for a program purchase. Returns an authorizationUrl —
+  redirect the user to this URL to complete payment.
+
+  Optional body fields:
+  - `provider` — "PAYSTACK" (default) or "FLUTTERWAVE".
+  - `currency` — ISO code (e.g. "NGN", "USD", "GBP"). Defaults to server's
+    `PAYMENT_DEFAULT_CURRENCY` (NGN). Use a non-NGN currency with Flutterwave
+    for international cards.
+
+  Response includes `provider`, `currency`, `authorizationUrl`, and `reference`.
 url: "{{baseUrl}}/api/payments/initialize"
 method: POST
 headers:
@@ -10,7 +20,9 @@ body:
   content: |-
     {
       "type": "PROGRAM",
-      "itemId": "{{programId}}"
+      "itemId": "{{programId}}",
+      "provider": "PAYSTACK",
+      "currency": "NGN"
     }
 scripts:
   - type: afterResponse

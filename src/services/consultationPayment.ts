@@ -1,10 +1,13 @@
+import crypto from 'crypto';
+import { PaymentProvider } from '@prisma/client';
 import prisma from '../config/prisma';
 import { sendConsultationPaymentLinkEmail } from '../utils/email.service';
+import { initializeFlutterwavePayment } from '../lib/flutterwaveIntegration';
 
 const PAYSTACK_SECRET = process.env.PAYSTACK_SECRET_KEY!;
 const PAYSTACK_BASE = 'https://api.paystack.co';
 
-const PAYSTACK_PAYMENT_WINDOW_SECONDS = 60 * 60; // 1 hour — matches paymentExpiresAt
+const PAYMENT_WINDOW_SECONDS = 60 * 60; // 1 hour — matches paymentExpiresAt
 
 async function paystackRequest(endpoint: string, method = 'GET', body?: object) {
   const res = await fetch(`${PAYSTACK_BASE}${endpoint}`, {
@@ -18,11 +21,23 @@ async function paystackRequest(endpoint: string, method = 'GET', body?: object) 
   return res.json();
 }
 
+function resolveProvider(provider?: PaymentProvider): PaymentProvider {
+  if (provider) return provider;
+  const fromEnv = process.env.CONSULTATION_PAYMENT_PROVIDER?.trim().toUpperCase();
+  if (fromEnv === 'FLUTTERWAVE') return PaymentProvider.FLUTTERWAVE;
+  return PaymentProvider.PAYSTACK;
+}
+
 /**
- * Creates a pending Paystack payment and emails the authorization URL.
- * Used after Cal.com BOOKING_CREATED webhook.
+ * Creates a pending payment row (Paystack or Flutterwave) and emails the
+ * authorization URL. Used after Cal.com BOOKING_CREATED webhook.
+ *
+ * Provider precedence: explicit arg → CONSULTATION_PAYMENT_PROVIDER env → PAYSTACK.
  */
-export async function createConsultationPaymentAndEmail(consultationId: string): Promise<void> {
+export async function createConsultationPaymentAndEmail(
+  consultationId: string,
+  options: { provider?: PaymentProvider; currency?: string } = {}
+): Promise<void> {
   const consultation = await prisma.consultation.findUnique({
     where: { id: consultationId },
     include: { service: true, user: true },
@@ -43,18 +58,44 @@ export async function createConsultationPaymentAndEmail(consultationId: string):
 
   const user = consultation.user;
   const amount = consultation.service.price;
-  const description = `Consultation: ${consultation.service.title}`;
+  const provider = resolveProvider(options.provider);
+  const currency =
+    options.currency?.trim().toUpperCase() ||
+    process.env.PAYMENT_DEFAULT_CURRENCY?.trim().toUpperCase() ||
+    'NGN';
 
-  // Note: Paystack session timeout is usually set in the Paystack dashboard; align with 1h slot hold.
-  const paystackResponse = (await paystackRequest('/transaction/initialize', 'POST', {
-    email: user.email,
-    amount: amount * 100,
-    metadata: { userId: user.id, type: 'CONSULTATION', itemId: consultationId },
-    callback_url: `${process.env.CLIENT_URL}/payment/verify`,
-  })) as { status: boolean; data: { reference: string; authorization_url: string } };
+  let authorizationUrl: string;
+  let reference: string;
 
-  if (!paystackResponse.status) {
-    throw new Error('Paystack initialize failed');
+  if (provider === PaymentProvider.PAYSTACK) {
+    const paystackResponse = (await paystackRequest('/transaction/initialize', 'POST', {
+      email: user.email,
+      amount: amount * 100,
+      currency,
+      metadata: { userId: user.id, type: 'CONSULTATION', itemId: consultationId },
+      callback_url: `${process.env.CLIENT_URL}/payment/verify`,
+    })) as { status: boolean; data: { reference: string; authorization_url: string } };
+
+    if (!paystackResponse.status) throw new Error('Paystack initialize failed');
+    authorizationUrl = paystackResponse.data.authorization_url;
+    reference = paystackResponse.data.reference;
+  } else {
+    const txRef = `flw_${user.id.slice(0, 8)}_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+    const flwResponse = await initializeFlutterwavePayment({
+      txRef,
+      amount,
+      currency,
+      email: user.email,
+      fullName: `${user.firstName} ${user.lastName}`.trim() || undefined,
+      redirectUrl: `${process.env.CLIENT_URL}/payment/verify`,
+      meta: { userId: user.id, type: 'CONSULTATION', itemId: consultationId },
+      paymentSessionTimeoutSeconds: PAYMENT_WINDOW_SECONDS,
+    });
+    if (flwResponse.status !== 'success' || !flwResponse.data?.link) {
+      throw new Error(flwResponse.message || 'Flutterwave initialize failed');
+    }
+    authorizationUrl = flwResponse.data.link;
+    reference = txRef;
   }
 
   await prisma.payment.create({
@@ -62,8 +103,10 @@ export async function createConsultationPaymentAndEmail(consultationId: string):
       userId: user.id,
       type: 'CONSULTATION',
       amount,
+      currency,
+      provider,
       status: 'PENDING',
-      paystackRef: paystackResponse.data.reference,
+      paystackRef: reference,
       consultationId,
     },
   });
@@ -72,7 +115,7 @@ export async function createConsultationPaymentAndEmail(consultationId: string):
     user.email,
     user.firstName,
     consultation.service.title,
-    paystackResponse.data.authorization_url,
-    PAYSTACK_PAYMENT_WINDOW_SECONDS
+    authorizationUrl,
+    PAYMENT_WINDOW_SECONDS
   );
 }

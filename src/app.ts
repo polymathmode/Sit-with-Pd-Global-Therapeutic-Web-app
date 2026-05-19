@@ -17,7 +17,7 @@ import newsletterRoutes from './routes/newsletter.routes';
 import { dashboardRouter, adminRouter } from './routes/admin.routes';
 import { errorHandler } from './middleware/error.middleware';
 import { calWebhook } from './controllers/consultation.cal.controller';
-import { paystackWebhook } from './controllers/payment.controller';
+import { paystackWebhook, flutterwaveWebhook } from './controllers/payment.controller';
 import { processExpiredConsultationPayments } from './services/consultationExpiry.service';
 import { processExpiredCampRegistrations } from './services/campRegistrationExpiry.service';
 import { processCampStatusTransitions } from './services/campStatus.service';
@@ -80,6 +80,16 @@ app.post(
   raw({ type: 'application/json' }),
   (req, res, next) => {
     Promise.resolve(paystackWebhook(req, res)).catch(next);
+  }
+);
+
+// Flutterwave webhook — auth via static `verif-hash` header from FLW dashboard.
+// Raw body kept for parity (and forward-compat if we ever HMAC the body).
+app.post(
+  '/api/payments/flutterwave-webhook',
+  raw({ type: 'application/json' }),
+  (req, res, next) => {
+    Promise.resolve(flutterwaveWebhook(req, res)).catch(next);
   }
 );
 

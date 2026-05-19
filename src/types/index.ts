@@ -57,3 +57,25 @@ export interface PaystackEvent {
     };
   };
 }
+
+// Flutterwave webhook event shape — sent to /api/payments/flutterwave-webhook.
+// We rely on `data.tx_ref` (the reference we generated on init) plus the static
+// `verif-hash` header for authenticity.
+export interface FlutterwaveWebhookEvent {
+  event: string; // typically 'charge.completed'
+  data: {
+    id: number;
+    tx_ref: string;
+    flw_ref?: string;
+    amount: number;
+    currency: string;
+    status: 'successful' | 'failed' | 'pending' | string;
+    customer: { email: string };
+    meta: {
+      userId: string;
+      type: 'PROGRAM' | 'CAMP' | 'CONSULTATION';
+      itemId: string;
+    };
+    [key: string]: unknown;
+  };
+}
